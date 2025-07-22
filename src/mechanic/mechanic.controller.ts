@@ -135,7 +135,6 @@ export class MechanicController {
 @ApiOperation({ summary: 'Create mechanic service' })  // groups endpoint in swagger ui
 @ApiResponse({ status: 201, description: 'Service created successfully' })  // gives a response to the client
 @ApiResponse({ status: 400, description: 'Bad Request' })  // handles bad request
-@HttpCode(HttpStatus.CREATED)
 @Post('service')
   @Roles(Role.MECHANIC)
   @HttpCode(HttpStatus.CREATED)

@@ -24,85 +24,119 @@ let AuthService = class AuthService {
         this.jwt = jwt;
     }
     async signupCusmtomer(dto) {
-        const { email, password } = dto;
-        const foundUser = await this.prisma.user.findUnique({ where: { email } });
-        if (foundUser) {
-            throw new common_1.BadRequestException("Email Already Exist");
-        }
-        const hashedPassword = await this.hashPassword(password);
-        const user = await this.prisma.user.create({
-            data: {
-                email,
-                password: hashedPassword,
-                role: client_1.Role.MECHANIC,
+        try {
+            const { email, password } = dto;
+            const foundUser = await this.prisma.user.findUnique({ where: { email } });
+            if (foundUser) {
+                throw new common_1.BadRequestException('Email Already Exists');
             }
-        });
-        return {
-            success: true,
-            messalge: 'sign up was succesful',
-            data: user,
-        };
+            const hashedPassword = await this.hashPassword(password);
+            const user = await this.prisma.user.create({
+                data: {
+                    email,
+                    password: hashedPassword,
+                    role: client_1.Role.CUSTOMER,
+                },
+            });
+            return {
+                success: true,
+                message: 'Sign up was successful',
+                data: user,
+            };
+        }
+        catch (error) {
+            throw new common_1.InternalServerErrorException(error.message || 'Sign-up failed. Please try again later.');
+        }
     }
     async signupMechanic(dto) {
-        const { email, password } = dto;
-        const foundUser = await this.prisma.user.findUnique({ where: { email } });
-        if (foundUser) {
-            throw new common_1.BadRequestException("Email Already Exist");
-        }
-        const hashedPassword = await this.hashPassword(password);
-        const user = await this.prisma.user.create({
-            data: {
-                email,
-                password: hashedPassword,
-                role: client_1.Role.CUSTOMER,
+        try {
+            const { email, password } = dto;
+            const foundUser = await this.prisma.user.findUnique({ where: { email } });
+            if (foundUser) {
+                throw new common_1.BadRequestException('Email Already Exists');
             }
-        });
-        return {
-            success: true,
-            messalge: 'sign up was succesful',
-            data: user,
-        };
+            const hashedPassword = await this.hashPassword(password);
+            const user = await this.prisma.user.create({
+                data: {
+                    email,
+                    password: hashedPassword,
+                    role: client_1.Role.MECHANIC,
+                    status: 'PENDNG',
+                },
+            });
+            return {
+                success: true,
+                message: 'Sign up was successful',
+                data: user,
+            };
+        }
+        catch (error) {
+            throw new common_1.InternalServerErrorException(error.message || 'Sign-up failed. Please try again later.');
+        }
     }
     async signin(dto, req, res) {
-        const { email, password } = dto;
-        const foundUser = await this.prisma.user.findUnique({ where: { email } });
-        if (!foundUser) {
-            throw new common_1.BadRequestException("Wrong Credentials");
+        try {
+            const { email, password } = dto;
+            const foundUser = await this.prisma.user.findUnique({ where: { email } });
+            if (!foundUser || !foundUser.password) {
+                throw new common_1.BadRequestException('Wrong Credentials');
+            }
+            const isMatch = await this.comparePassword({
+                password,
+                hashedPassword: foundUser.password,
+            });
+            if (!isMatch) {
+                throw new common_1.BadRequestException('Wrong Credentials');
+            }
+            const token = await this.signToken({
+                id: foundUser.id,
+                email: foundUser.email,
+                role: foundUser.role,
+            });
+            if (!token) {
+                throw new common_1.ForbiddenException('Token generation failed');
+            }
+            res.cookie('token', token);
+            return res.send({ message: 'Logged in Successfully' });
         }
-        if (!foundUser.password) {
-            throw new common_1.BadRequestException("Wrong Credentials");
+        catch (error) {
+            throw new common_1.InternalServerErrorException(error.message || 'Sign-in failed. Please try again later.');
         }
-        const isMatch = await this.comparePassword({ password, hashedPassword: foundUser.password });
-        if (!isMatch) {
-            throw new common_1.BadRequestException("Wrong Credentials");
-        }
-        if (!foundUser.email) {
-            throw new common_1.BadRequestException("User email is missing");
-        }
-        const token = await this.signToken({
-            id: foundUser.id,
-            email: foundUser.email
-        });
-        if (!token) {
-            throw new common_1.ForbiddenException("Token generation failed");
-        }
-        res.cookie('token', token);
-        return res.send({ message: 'Logged in Succefully' });
     }
     async signout(req, res) {
-        res.clearCookie('token');
-        return res.send({ message: 'Logged out successfully' });
+        try {
+            res.clearCookie('token');
+            return res.send({ message: 'Logged out successfully' });
+        }
+        catch (error) {
+            throw new common_1.InternalServerErrorException(error.message || 'Sign-out failed. Please try again later.');
+        }
     }
     async hashPassword(password) {
-        const saltOrRounds = 10;
-        return await bcrypt.hash(password, saltOrRounds);
+        try {
+            const saltOrRounds = 10;
+            return await bcrypt.hash(password, saltOrRounds);
+        }
+        catch (error) {
+            throw new common_1.InternalServerErrorException('Password hashing failed');
+        }
     }
     async comparePassword(args) {
-        return await bcrypt.compare(args.password, args.hashedPassword);
+        try {
+            return await bcrypt.compare(args.password, args.hashedPassword);
+        }
+        catch (error) {
+            throw new common_1.InternalServerErrorException('Password comparison failed');
+        }
     }
     async signToken(args) {
-        const payload = args;
-        return this.jwt.signAsync(payload, { secret: constant_1.jwtSecret });
+        try {
+            const payload = args;
+            return this.jwt.signAsync(payload, { secret: constant_1.jwtSecret });
+        }
+        catch (error) {
+            throw new common_1.InternalServerErrorException('JWT generation failed');
+        }
     }
     async role() {
         return;

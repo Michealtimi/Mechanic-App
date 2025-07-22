@@ -149,7 +149,6 @@ __decorate([
     (0, swagger_1.ApiOperation)({ summary: 'Create mechanic service' }),
     (0, swagger_1.ApiResponse)({ status: 201, description: 'Service created successfully' }),
     (0, swagger_1.ApiResponse)({ status: 400, description: 'Bad Request' }),
-    (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
     (0, common_1.Post)('service'),
     (0, roles_decorators_1.Roles)(client_1.Role.MECHANIC),
     (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),

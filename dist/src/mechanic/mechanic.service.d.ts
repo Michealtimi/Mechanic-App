@@ -5,15 +5,16 @@ export declare class MechanicService {
     private readonly prisma;
     constructor(prisma: PrismaService);
     getMechanicProfile(id: string): Promise<{
-        id: string;
         email: string;
+        id: string;
         role: import(".prisma/client").$Enums.Role;
     }>;
     updateMechanicProfile(dto: UpdateMechanicDto, id: string): Promise<{
-        id: string;
         email: string;
         password: string;
+        id: string;
         role: import(".prisma/client").$Enums.Role;
+        status: string;
         shopName: string | null;
         location: string | null;
         skills: string[];
@@ -25,10 +26,11 @@ export declare class MechanicService {
         certificationUrls: string[];
     }>;
     saveCertification(id: string, filename: string): Promise<{
-        id: string;
         email: string;
         password: string;
+        id: string;
         role: import(".prisma/client").$Enums.Role;
+        status: string;
         shopName: string | null;
         location: string | null;
         skills: string[];
@@ -40,10 +42,11 @@ export declare class MechanicService {
         certificationUrls: string[];
     }>;
     uploadProfilePicture(id: string, file: Express.Multer.File): Promise<{
-        id: string;
         email: string;
         password: string;
+        id: string;
         role: import(".prisma/client").$Enums.Role;
+        status: string;
         shopName: string | null;
         location: string | null;
         skills: string[];
@@ -58,8 +61,8 @@ export declare class MechanicService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        title: string;
         description: string | null;
+        title: string;
         price: number;
         estimatedTime: string | null;
         availability: string | null;
@@ -69,8 +72,8 @@ export declare class MechanicService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        title: string;
         description: string | null;
+        title: string;
         price: number;
         estimatedTime: string | null;
         availability: string | null;
@@ -80,8 +83,8 @@ export declare class MechanicService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        title: string;
         description: string | null;
+        title: string;
         price: number;
         estimatedTime: string | null;
         availability: string | null;
@@ -91,8 +94,8 @@ export declare class MechanicService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        title: string;
         description: string | null;
+        title: string;
         price: number;
         estimatedTime: string | null;
         availability: string | null;

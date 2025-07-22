@@ -44,9 +44,14 @@ let BookingService = class BookingService {
             },
         });
     }
-    async getMechanicBooking(id) {
-        this.prisma.booking.findMany({
-            where: { id },
+    async getMechanicBooking(userId) {
+        return this.prisma.booking.findMany({
+            where: {
+                OR: [
+                    { mechanicId: userId },
+                    { customerId: userId },
+                ]
+            },
             include: {
                 service: true,
                 customer: true,

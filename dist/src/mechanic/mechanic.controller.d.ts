@@ -9,8 +9,8 @@ export declare class MechanicController {
             id: string;
         };
     }): Promise<{
-        id: string;
         email: string;
+        id: string;
         role: import(".prisma/client").$Enums.Role;
     }>;
     updateMechanicProfile(req: Request & {
@@ -18,10 +18,11 @@ export declare class MechanicController {
             id: string;
         };
     }, dto: UpdateMechanicDto): Promise<{
-        id: string;
         email: string;
         password: string;
+        id: string;
         role: import(".prisma/client").$Enums.Role;
+        status: string;
         shopName: string | null;
         location: string | null;
         skills: string[];
@@ -33,10 +34,11 @@ export declare class MechanicController {
         certificationUrls: string[];
     }>;
     uploadCertification(file: Express.Multer.File, req: any): Promise<{
-        id: string;
         email: string;
         password: string;
+        id: string;
         role: import(".prisma/client").$Enums.Role;
+        status: string;
         shopName: string | null;
         location: string | null;
         skills: string[];
@@ -48,10 +50,11 @@ export declare class MechanicController {
         certificationUrls: string[];
     }>;
     uploadProfilePicture(file: Express.Multer.File, req: any): Promise<{
-        id: string;
         email: string;
         password: string;
+        id: string;
         role: import(".prisma/client").$Enums.Role;
+        status: string;
         shopName: string | null;
         location: string | null;
         skills: string[];
@@ -66,8 +69,8 @@ export declare class MechanicController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        title: string;
         description: string | null;
+        title: string;
         price: number;
         estimatedTime: string | null;
         availability: string | null;
@@ -77,8 +80,8 @@ export declare class MechanicController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        title: string;
         description: string | null;
+        title: string;
         price: number;
         estimatedTime: string | null;
         availability: string | null;
@@ -88,8 +91,8 @@ export declare class MechanicController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        title: string;
         description: string | null;
+        title: string;
         price: number;
         estimatedTime: string | null;
         availability: string | null;
@@ -99,8 +102,8 @@ export declare class MechanicController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        title: string;
         description: string | null;
+        title: string;
         price: number;
         estimatedTime: string | null;
         availability: string | null;

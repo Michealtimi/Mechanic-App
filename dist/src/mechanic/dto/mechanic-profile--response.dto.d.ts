@@ -1,4 +1,4 @@
-export interface MechanicProfileResponseDto {
+export declare class MechanicProfileResponseDto {
     id: string;
     email: string;
     shopName?: string | null;

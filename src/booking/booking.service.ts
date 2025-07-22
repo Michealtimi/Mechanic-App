@@ -46,14 +46,18 @@ export class BookingService {constructor(private readonly prisma: PrismaService)
     });
 }
 
-  async getMechanicBooking(id:string){
-  this.prisma.booking.findMany({
-  where: { id },
-  include: {
-    service: true,
-    customer: true, // if you want booking context
-  },
-});
-
+ async getMechanicBooking(userId: string) {
+    return this.prisma.booking.findMany({
+      where: {
+        OR: [
+          { mechanicId: userId },
+          { customerId: userId },
+        ]
+      },
+      include: {
+        service: true,
+        customer: true,
+      },
+    });
   }
-}
+  }

@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, InternalServerErrorException } from '@nestjs/common';
 const bcrypt = require('bcryptjs');
 import { PrismaService } from 'prisma/prisma.service';
 import { AuthDto } from './dto/auth.dto';
@@ -13,112 +13,162 @@ import { PrismaClient, Role } from '@prisma/client'; // Import Role directly fro
 export class AuthService {
     constructor(private prisma: PrismaService, private jwt: JwtService ) {}
 
-    async signupCusmtomer(dto: AuthDto){
-        const { email, password } = dto;  //because we are expecting it, so it being created down/
-
-        const foundUser = await this.prisma.user.findUnique({ where: { email } });
-        if (foundUser){
-            throw new BadRequestException("Email Already Exist")
-        }
-
-        const hashedPassword = await this.hashPassword(password); //hashing the password
-        const user = await this.prisma.user.create({
-            data: {
-                email,
-                password: hashedPassword,
-                role: Role.MECHANIC,  // Assigning a default role},
-        }});
-        return {
-            success: true,
-            messalge: 'sign up was succesful',  
-            data: user,
-        };
-    }
-
-     async signupMechanic(dto: AuthDto){
-        const { email, password } = dto;  //because we are expecting it, so it being created down/
-
-        const foundUser = await this.prisma.user.findUnique({ where: { email } });
-        if (foundUser){
-            throw new BadRequestException("Email Already Exist")
-        }
-
-        const hashedPassword = await this.hashPassword(password); //hashing the password
-        const user = await this.prisma.user.create({
-            data: {
-                email,
-                password: hashedPassword,
-                role: Role.CUSTOMER,  // Assigning a default role},
-        }});
-        return {
-            success: true,
-            messalge: 'sign up was succesful',  
-            data: user,
-        };
-    }
-
-    async signin(dto: AuthDto, req: Request, res: Response){
+   async signupCusmtomer(dto: AuthDto) {
+        try {
         const { email, password } = dto;
 
-         const foundUser = await this.prisma.user.findUnique({ where: { email } }); /// speak to prisma
-        if (!foundUser){
-            throw new BadRequestException("Wrong Credentials")  ///if email is not found
+        const foundUser = await this.prisma.user.findUnique({ where: { email } });  // Check if user already exists
+        // If user already exists, throw an error
+        if (foundUser) {
+            throw new BadRequestException('Email Already Exists');
         }
 
-        if (!foundUser.password) {
-            throw new BadRequestException("Wrong Credentials"); ///  if password is not found
+        // Hash the password before saving it
+        const hashedPassword = await this.hashPassword(password);
+        const user = await this.prisma.user.create({
+            data: {
+            email,
+            password: hashedPassword,
+            role: Role.CUSTOMER,
+            },
+        });
+
+        return {
+            success: true,
+            message: 'Sign up was successful',
+            data: user,
+        };
+        } catch (error) {
+        throw new InternalServerErrorException(
+            error.message || 'Sign-up failed. Please try again later.'
+        );
         }
-        const isMatch = await this.comparePassword({password, hashedPassword: foundUser.password});
-        if (!isMatch){
-            throw new BadRequestException("Wrong Credentials")  // comlaint if password is not correct
+    }
+
+// Method to sign up a mechanic
+ async signupMechanic(dto: AuthDto) {
+        try {
+        const { email, password } = dto;
+
+        // confirm if user exists
+        const foundUser = await this.prisma.user.findUnique({ where: { email } });
+        if (foundUser) {
+            throw new BadRequestException('Email Already Exists');
         }
 
-        if (!foundUser.email) {
-            throw new BadRequestException("User email is missing");  // if email is not found
+            // Hash the password before saving it      
+        const hashedPassword = await this.hashPassword(password);
+        const user = await this.prisma.user.create({
+            data: {
+            email,
+            password: hashedPassword,
+            role: Role.MECHANIC,
+            status: 'PENDNG',
+            },
+        });
+
+        return {
+            success: true,
+            message: 'Sign up was successful',
+            data: user,
+        };
+        } catch (error) {
+        throw new InternalServerErrorException(
+            error.message || 'Sign-up failed. Please try again later.'
+        );
         }
-        const token = await this.signToken({   /// signing the token
-            id: foundUser.id,                       
-            email: foundUser.email
+    }
+
+    // Method to sign in a user
+    async signin(dto: AuthDto, req: Request, res: Response) {  /// request and response are used to handle the request and response objects
+        try {
+        const { email, password } = dto;
+
+        // Check if user exists
+        const foundUser = await this.prisma.user.findUnique({ where: { email } });
+        if (!foundUser || !foundUser.password) {
+            throw new BadRequestException('Wrong Credentials');
+        }
+
+        // Compare the provided password with the stored hashed password
+        // If the password does not match, throw an error
+        const isMatch = await this.comparePassword({
+            password,
+            hashedPassword: foundUser.password,
+        });
+
+        if (!isMatch) {
+            throw new BadRequestException('Wrong Credentials');
+        }
+
+        // If the user is found and the password matches, generate a JWT token
+        const token = await this.signToken({
+            id: foundUser.id,
+            email: foundUser.email,
+            role: foundUser.role,
         });
 
         if (!token) {
-            throw new ForbiddenException("Token generation failed");  // if token is not found  
+            throw new ForbiddenException('Token generation failed');
         }
 
         res.cookie('token', token);
-
-        return res.send({message: 'Logged in Succefully'});
+        return res.send({ message: 'Logged in Successfully' });
+        } catch (error) {
+        throw new InternalServerErrorException(
+            error.message || 'Sign-in failed. Please try again later.'
+        );
+        }
     }
     
-    async signout( req: Request, res: Response){
-        res.clearCookie('token');  //clearing the cookie
-        return res.send({message: 'Logged out successfully'});  //sending the response ;
+    // Method to sign out a user
+    async signout(req: Request, res: Response) {
+        try {
+        res.clearCookie('token');
+        return res.send({ message: 'Logged out successfully' });
+        } catch (error) {
+        throw new InternalServerErrorException(
+            error.message || 'Sign-out failed. Please try again later.'
+        );
+        }
     }
 
-
-    async hashPassword(password:string){      /// br
+    // Helper methods for password hashing and token generation
+    async hashPassword(password: string) {
+        try {
         const saltOrRounds = 10;
         return await bcrypt.hash(password, saltOrRounds);
-        
-     
+        } catch (error) {
+        throw new InternalServerErrorException('Password hashing failed');
+        }
     }
 
-    async comparePassword(args:{password: string, hashedPassword: string}) {
+    /// Method to compare passwords
+    async comparePassword(args: { password: string; hashedPassword: string }) {
+        try {
         return await bcrypt.compare(args.password, args.hashedPassword);
-    } 
-
-    async signToken(args: {id: string, email: string}) {
-        const payload = args
-          
-
-        return this.jwt.signAsync(payload, {secret: jwtSecret})
-    }
-
-    async role(){
-        return
+        } catch (error) {
+        throw new InternalServerErrorException('Password comparison failed');
+        }
     }
 
     
-}
+    async signToken(args: { id: string; email: string; role: Role }) {
+    try {
+      const payload = args;
+      return this.jwt.signAsync(payload, { secret: jwtSecret });
+    } catch (error) {
+      throw new InternalServerErrorException('JWT generation failed');
+    }
+  }
+
+
+   async role() {
+    return;
+  }
+    }
+
+    
+
 
 

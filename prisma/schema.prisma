@@ -25,6 +25,7 @@ model User {
   email               String           @unique
   password            String
   role                Role             @default(CUSTOMER)
+  status    String   @default("PENDING") // Add this line
 
   // Mechanic-specific profile fields (these belong directly to the User's profile)
   shopName            String?
@@ -65,6 +66,13 @@ model MechanicService {
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 }
+
+enum Status {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 
 
 // this is the enum for the booking 
