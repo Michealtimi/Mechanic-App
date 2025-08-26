@@ -17,22 +17,26 @@ const common_1 = require("@nestjs/common");
 const auth_service_1 = require("./auth.service");
 const auth_dto_1 = require("./dto/auth.dto");
 const swagger_1 = require("@nestjs/swagger");
+const jwt_guard_1 = require("./jwt.guard");
+const roles_guards_1 = require("../common/guard/roles.guards");
+const roles_decorators_1 = require("../common/decorators/roles.decorators");
+const client_1 = require("@prisma/client");
 let AuthController = class AuthController {
     authService;
     constructor(authService) {
         this.authService = authService;
     }
-    signupCustomer(dto, res, req) {
-        return this.authService.signupCusmtomer(dto);
+    async signupCustomer(dto) {
+        return this.authService.signup(dto, client_1.Role.CUSTOMER, 'ACTIVE');
     }
-    signupMechanic(dto, res, req) {
-        return this.authService.signupMechanic(dto);
+    async signupMechanic(dto) {
+        return this.authService.signup(dto, client_1.Role.MECHANIC, 'PENDING');
     }
-    signout(res, req) {
-        return this.authService.signout(req, res);
+    async signin(dto) {
+        return this.authService.signin(dto);
     }
-    signin(dto, res, req) {
-        return this.authService.signin(dto, req, res);
+    async signupAdmin(dto) {
+        return this.authService.signup(dto, client_1.Role.ADMIN, 'ACTIVE');
     }
 };
 exports.AuthController = AuthController;
@@ -41,47 +45,40 @@ __decorate([
     (0, swagger_1.ApiOperation)({ summary: 'Sign up as a customer' }),
     (0, swagger_1.ApiResponse)({ status: 201, description: 'Customer created' }),
     __param(0, (0, common_1.Body)(common_1.ValidationPipe)),
-    __param(1, (0, common_1.Res)()),
-    __param(2, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [auth_dto_1.AuthDto, Object, Object]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:paramtypes", [auth_dto_1.AuthDto]),
+    __metadata("design:returntype", Promise)
 ], AuthController.prototype, "signupCustomer", null);
 __decorate([
     (0, common_1.Post)('signup/mechanic'),
-    (0, swagger_1.ApiOperation)({ summary: 'Sign up as a mechanic' }),
-    (0, swagger_1.ApiResponse)({ status: 201, description: 'mechanic created' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Sign up as a mechanic (pending approval)' }),
+    (0, swagger_1.ApiResponse)({ status: 201, description: 'Mechanic created' }),
     __param(0, (0, common_1.Body)(common_1.ValidationPipe)),
-    __param(1, (0, common_1.Res)()),
-    __param(2, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [auth_dto_1.AuthDto, Object, Object]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:paramtypes", [auth_dto_1.AuthDto]),
+    __metadata("design:returntype", Promise)
 ], AuthController.prototype, "signupMechanic", null);
 __decorate([
-    (0, common_1.Get)('signout'),
-    (0, swagger_1.ApiOperation)({ summary: 'Sign out of the application' }),
-    (0, swagger_1.ApiResponse)({ status: 200, description: 'Signed out successfully' }),
-    __param(0, (0, common_1.Res)()),
-    __param(1, (0, common_1.Req)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, Object]),
-    __metadata("design:returntype", void 0)
-], AuthController.prototype, "signout", null);
-__decorate([
     (0, common_1.Post)('signin'),
-    (0, swagger_1.ApiOperation)({ summary: 'Signin to the application' }),
-    (0, swagger_1.ApiResponse)({ status: 200, description: 'signedIn' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Login and get JWT token' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Login successful' }),
     __param(0, (0, common_1.Body)(common_1.ValidationPipe)),
-    __param(1, (0, common_1.Res)()),
-    __param(2, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [auth_dto_1.AuthDto, Object, Object]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:paramtypes", [auth_dto_1.AuthDto]),
+    __metadata("design:returntype", Promise)
 ], AuthController.prototype, "signin", null);
+__decorate([
+    (0, common_1.Post)('signup/admin'),
+    (0, common_1.UseGuards)(jwt_guard_1.JwtAuthGuard, roles_guards_1.RolesGuard),
+    (0, roles_decorators_1.Roles)(client_1.Role.ADMIN),
+    (0, swagger_1.ApiOperation)({ summary: 'Sign up an admin (admin only)' }),
+    __param(0, (0, common_1.Body)(common_1.ValidationPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [auth_dto_1.AuthDto]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "signupAdmin", null);
 exports.AuthController = AuthController = __decorate([
     (0, swagger_1.ApiTags)('Auth'),
-    (0, common_1.Controller)('auth'),
     (0, common_1.Controller)('auth'),
     __metadata("design:paramtypes", [auth_service_1.AuthService])
 ], AuthController);

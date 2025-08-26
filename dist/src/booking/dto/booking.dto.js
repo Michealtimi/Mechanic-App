@@ -9,33 +9,56 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CreateBookingDto = void 0;
+exports.CreateBookingDto = exports.BookingStatus = void 0;
 const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
+var BookingStatus;
+(function (BookingStatus) {
+    BookingStatus["PENDING"] = "PENDING";
+    BookingStatus["CONFIRMED"] = "CONFIRMED";
+    BookingStatus["COMPLETED"] = "COMPLETED";
+    BookingStatus["CANCELLED"] = "CANCELLED";
+})(BookingStatus || (exports.BookingStatus = BookingStatus = {}));
 class CreateBookingDto {
     mechanicId;
     serviceId;
-    schedudledAt;
+    scheduledAt;
     status;
 }
 exports.CreateBookingDto = CreateBookingDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'mechanic id', description: 'Unique ID of the mechanic ' }),
+    (0, swagger_1.ApiProperty)({
+        example: 'uuid-of-mechanic',
+        description: 'Unique ID of the mechanic',
+    }),
     (0, class_validator_1.IsUUID)(),
     __metadata("design:type", String)
 ], CreateBookingDto.prototype, "mechanicId", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'uuid-of-service', description: 'Unique ID of the service' }),
+    (0, swagger_1.ApiProperty)({
+        example: 'uuid-of-service',
+        description: 'Unique ID of the service',
+    }),
     (0, class_validator_1.IsUUID)(),
     __metadata("design:type", String)
 ], CreateBookingDto.prototype, "serviceId", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: new Date().toISOString(), description: 'Date the service was schedule' }),
+    (0, swagger_1.ApiProperty)({
+        example: new Date().toISOString(),
+        description: 'Date and time the service is scheduled',
+    }),
     (0, class_validator_1.IsDateString)(),
-    __metadata("design:type", Date)
-], CreateBookingDto.prototype, "schedudledAt", void 0);
+    __metadata("design:type", String)
+], CreateBookingDto.prototype, "scheduledAt", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'ststus', description: 'status of Service' }),
+    (0, swagger_1.ApiProperty)({
+        example: BookingStatus.PENDING,
+        description: 'Status of the booking',
+        enum: BookingStatus,
+        required: false,
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)(BookingStatus),
     __metadata("design:type", String)
 ], CreateBookingDto.prototype, "status", void 0);
 //# sourceMappingURL=booking.dto.js.map

@@ -1,54 +1,33 @@
-import { PrismaService } from "prisma/prisma.service";
-import { CreateBookingDto } from "./dto/booking.dto";
+import { PrismaService } from 'prisma/prisma.service';
+import { UpdateBookingStatusDto } from './dto/update-booking-status.dto';
+import { CreateBookingDto } from './dto/creating-booking.dto';
+import { BookingResponseDto } from './dto/bookingresponse.dto';
 export declare class BookingService {
     private readonly prisma;
     constructor(prisma: PrismaService);
-    createBooking(dto: CreateBookingDto, serviceId: string, customerId: string): Promise<{
-        id: string;
-        status: import(".prisma/client").$Enums.BookingStatus;
-        createdAt: Date;
-        updatedAt: Date;
-        mechanicId: string;
-        serviceId: string;
-        customerId: string;
-        scheduledAt: Date;
+    createBooking(dto: CreateBookingDto, customerId: string): Promise<{
+        success: boolean;
+        message: string;
+        data: BookingResponseDto;
     }>;
-    getMechanicBooking(userId: string): Promise<({
-        service: {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            description: string | null;
-            title: string;
-            price: number;
-            estimatedTime: string | null;
-            availability: string | null;
-            mechanicId: string;
-        };
-        customer: {
-            email: string;
-            password: string;
-            id: string;
-            role: import(".prisma/client").$Enums.Role;
-            status: string;
-            shopName: string | null;
-            location: string | null;
-            skills: string[];
-            createdAt: Date;
-            updatedAt: Date;
-            experienceYears: number | null;
-            profilePictureUrl: string | null;
-            bio: string | null;
-            certificationUrls: string[];
-        };
-    } & {
-        id: string;
-        status: import(".prisma/client").$Enums.BookingStatus;
-        createdAt: Date;
-        updatedAt: Date;
-        mechanicId: string;
-        serviceId: string;
-        customerId: string;
-        scheduledAt: Date;
-    })[]>;
+    getAllBookings(userId: string): Promise<{
+        success: boolean;
+        message: string;
+        data: BookingResponseDto[];
+    }>;
+    getBookingById(id: string, userId: string): Promise<{
+        success: boolean;
+        message: string;
+        data: BookingResponseDto;
+    }>;
+    updateBookingStatus(id: string, dto: UpdateBookingStatusDto, mechanicId: string): Promise<{
+        success: boolean;
+        message: string;
+        data: BookingResponseDto;
+    }>;
+    cancelBooking(id: string, customerId: string): Promise<{
+        success: boolean;
+        message: string;
+        data: null;
+    }>;
 }

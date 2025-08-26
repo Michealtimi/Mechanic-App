@@ -3,46 +3,25 @@ import { AuthDto } from './dto/auth.dto';
 export declare class AuthController {
     private readonly authService;
     constructor(authService: AuthService);
-    signupCustomer(dto: AuthDto, res: any, req: any): Promise<{
+    signupCustomer(dto: AuthDto): Promise<{
         success: boolean;
         message: string;
-        data: {
-            email: string;
-            password: string;
-            id: string;
-            role: import(".prisma/client").$Enums.Role;
-            status: string;
-            shopName: string | null;
-            location: string | null;
-            skills: string[];
-            createdAt: Date;
-            updatedAt: Date;
-            experienceYears: number | null;
-            profilePictureUrl: string | null;
-            bio: string | null;
-            certificationUrls: string[];
-        };
+        data: import("../users/dto/user-response.dto").UserResponseDto;
     }>;
-    signupMechanic(dto: AuthDto, res: any, req: any): Promise<{
+    signupMechanic(dto: AuthDto): Promise<{
         success: boolean;
         message: string;
-        data: {
-            email: string;
-            password: string;
-            id: string;
-            role: import(".prisma/client").$Enums.Role;
-            status: string;
-            shopName: string | null;
-            location: string | null;
-            skills: string[];
-            createdAt: Date;
-            updatedAt: Date;
-            experienceYears: number | null;
-            profilePictureUrl: string | null;
-            bio: string | null;
-            certificationUrls: string[];
-        };
+        data: import("../users/dto/user-response.dto").UserResponseDto;
     }>;
-    signout(res: any, req: any): Promise<import("express").Response<any, Record<string, any>>>;
-    signin(dto: AuthDto, res: any, req: any): Promise<import("express").Response<any, Record<string, any>>>;
+    signin(dto: AuthDto): Promise<{
+        success: boolean;
+        message: string;
+        token: string;
+        user: import("../users/dto/user-response.dto").UserResponseDto;
+    }>;
+    signupAdmin(dto: AuthDto): Promise<{
+        success: boolean;
+        message: string;
+        data: import("../users/dto/user-response.dto").UserResponseDto;
+    }>;
 }

@@ -3,7 +3,7 @@ export declare class MechanicProfileResponseDto {
     email: string;
     shopName?: string | null;
     location?: string | null;
-    skills?: string | null;
+    skills?: string[] | null;
     profilePictureUrl?: string | null;
     bio?: string | null;
     experienceYears?: number | null;

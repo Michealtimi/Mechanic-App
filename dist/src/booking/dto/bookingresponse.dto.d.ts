@@ -1,6 +1,9 @@
-export declare class bookingResponseDto {
+import { BookingStatus } from './creating-booking.dto';
+export declare class BookingResponseDto {
+    id: string;
     mechanicId: string;
     serviceId: string;
-    schedudledAt: Date;
-    status?: 'PENDING' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED';
+    scheduledAt: Date;
+    status: BookingStatus;
+    customerId: string;
 }

@@ -1,23 +1,40 @@
-import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, Length } from 'class-validator';
+/* eslint-disable prettier/prettier */
+// import {
+//   IsEmail,
+//   IsEnum,
+//   IsNotEmpty,
+//   IsOptional,
+//   IsString,
+//   Length,
+// } from 'class-validator';
 
-// Define Role enum locally if not available from Prisma
-export enum Role {
-  USER = 'USER',
-  ADMIN = 'ADMIN',
-  MECHANIC = 'MECHANIC',
-  
-}
+// // Define Role enum locally if not available from Prisma
+// export enum Role {
+//   USER = 'USER',
+//   ADMIN = 'ADMIN',
+//   MECHANIC = 'MECHANIC',
+// }
+
+// export class AuthDto {
+//   @IsEmail()
+//   @IsNotEmpty()
+//   email: string;
+
+//   @IsNotEmpty()
+//   @IsString()
+//   @Length(3, 20, { message: 'Password must be between 3 and 20 characters' })
+//   password: string;
+// }
+
+
+// src/auth/dto/auth.dto.ts
+import { IsEmail, IsNotEmpty, MinLength } from 'class-validator';
 
 export class AuthDto {
   @IsEmail()
-  @IsNotEmpty()
   email: string;
 
   @IsNotEmpty()
-  @IsString() 
-  @Length(3, 20, { message: 'Password must be between 3 and 20 characters' })
+  @MinLength(6)
   password: string;
-
 }
-
-

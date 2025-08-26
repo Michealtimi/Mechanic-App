@@ -12,9 +12,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CreateMechanicDto = void 0;
 const class_validator_1 = require("class-validator");
 const swagger_1 = require("@nestjs/swagger");
+const class_transformer_1 = require("class-transformer");
 class CreateMechanicDto {
-    password;
     email;
+    password;
     shopName;
     location;
     skills;
@@ -24,17 +25,20 @@ class CreateMechanicDto {
 }
 exports.CreateMechanicDto = CreateMechanicDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'john_doe', description: 'Unique username for the mechanic' }),
-    (0, class_validator_1.IsString)(),
-    __metadata("design:type", String)
-], CreateMechanicDto.prototype, "password", void 0);
-__decorate([
-    (0, swagger_1.ApiProperty)({ example: 'johndoe@gmail.com', description: 'Email address of the mechanic' }),
+    (0, swagger_1.ApiProperty)({ example: 'mechanic@example.com', description: 'Email of the mechanic' }),
+    (0, class_validator_1.IsNotEmpty)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateMechanicDto.prototype, "email", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'SpeedyFix Auto Repair' }),
+    (0, swagger_1.ApiProperty)({ example: 'securePassword123', description: 'Password for the mechanic account' }),
+    (0, class_validator_1.IsNotEmpty)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateMechanicDto.prototype, "password", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: 'SpeedyFix Auto Repair', description: 'Name of the shop' }),
+    (0, class_validator_1.IsNotEmpty)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateMechanicDto.prototype, "shopName", void 0);
@@ -45,14 +49,24 @@ __decorate([
     __metadata("design:type", String)
 ], CreateMechanicDto.prototype, "location", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'Brake systems, Engine diagnostics', required: false }),
+    (0, swagger_1.ApiPropertyOptional)({ example: ['Brake systems', 'Engine diagnostics'], description: 'Skills of the mechanic' }),
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsString)(),
-    __metadata("design:type", String)
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsString)({ each: true }),
+    (0, class_transformer_1.Transform)(({ value }) => {
+        if (Array.isArray(value))
+            return value;
+        if (typeof value === 'string' && value.trim())
+            return [value];
+        return undefined;
+    }),
+    __metadata("design:type", Array)
 ], CreateMechanicDto.prototype, "skills", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: '5', description: 'Years of experience', required: false }),
+    (0, swagger_1.ApiProperty)({ example: 5, description: 'Years of experience', required: false }),
     (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_transformer_1.Type)(() => Number),
     __metadata("design:type", Number)
 ], CreateMechanicDto.prototype, "experienceYears", void 0);
 __decorate([
@@ -67,4 +81,4 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateMechanicDto.prototype, "bio", void 0);
-//# sourceMappingURL=mechanic.dto.js.map
+//# sourceMappingURL=create-mechanic.dto.js.map

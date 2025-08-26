@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-floating-promises */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
@@ -23,8 +25,8 @@ async function bootstrap() {
     .addBearerAuth() // if using JWT Auth
     .build();
 
-    /// this method take two instance the app and the swagger config
-  const document = SwaggerModule.createDocument(app, config);  /// this is used to generate the swagger document when requestd.
+  /// this method take two instance the app and the swagger config
+  const document = SwaggerModule.createDocument(app, config); /// this is used to generate the swagger document when requested.
   SwaggerModule.setup('api', app, document); // Visit http://localhost:3000/api
 
   // Listen on environment port or default to 3000

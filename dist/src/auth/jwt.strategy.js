@@ -24,9 +24,7 @@ const cookieExtractor = (req) => {
 let JwtStrategy = JwtStrategy_1 = class JwtStrategy extends (0, passport_1.PassportStrategy)(passport_jwt_1.Strategy) {
     constructor() {
         super({
-            jwtFromRequest: passport_jwt_1.ExtractJwt.fromExtractors([
-                JwtStrategy_1.extractJWT,
-            ]),
+            jwtFromRequest: passport_jwt_1.ExtractJwt.fromExtractors([JwtStrategy_1.extractJWT]),
             secretOrKey: constant_1.jwtSecret ?? 'your_default_jwt_secret',
         });
     }

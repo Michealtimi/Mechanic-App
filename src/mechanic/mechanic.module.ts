@@ -6,6 +6,6 @@ import { UsersModule } from 'src/users/users.module';
 @Module({
   imports: [UsersModule], // ✅ this now wo
   controllers: [MechanicController],
-  providers: [MechanicService]
+  providers: [MechanicService],
 })
 export class MechanicModule {}

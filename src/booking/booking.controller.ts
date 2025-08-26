@@ -1,46 +1,75 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Request, UseGuards } from '@nestjs/common';
-import { BookingService } from './booking.service'; // adjust path if needed
-import { CreateBookingDto } from './dto/booking.dto';
+/* eslint-disable prettier/prettier */
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+ 
 import {
-  ApiTags,
-  ApiBearerAuth,
-  ApiResponse,
-  ApiOperation,
-} from '@nestjs/swagger';
+  Controller,
+  Post,
+  Get,
+  Patch,
+  Delete,
+  Param,
+  Body,
+  Request,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import { BookingService } from './booking.service';
+
+import { UpdateBookingStatusDto } from './dto/update-booking-status.dto';
+
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
 import { RolesGuard } from 'src/common/guard/roles.guards';
-import { bookingResponseDto } from './dto/bookingresponse.dto';
+import { CreateBookingDto } from './dto/creating-booking.dto';
+import { BookingResponseDto } from './dto/bookingresponse.dto';
+import { Roles } from 'src/common/decorators/roles.decorators';
 
-
-@ApiTags('booking')  // this is used to group the endpoints in Swagger UI
-@ApiBearerAuth()  // this indicates that the endpoints require a JWT token for access
+@ApiTags('Bookings')
+@ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('booking')
 export class BookingController {
   constructor(private readonly bookingService: BookingService) {}
-@ApiOperation({ summary: 'Create mechanic service' })  // groups endpoint in swagger ui
-@ApiResponse({ type: bookingResponseDto ,status: 201, description: 'Booking Created created successfully' })  // gives a response to the client
-@HttpCode(HttpStatus.CREATED)
-@Post('create')
-async createBooking(
-  @Request() req,
-  @Body() dto: CreateBookingDto, 
-  
-){
-    const customerId = req.user.id;
-    const booking = await this.bookingService.createBooking(dto, dto.serviceId, customerId);
-    return booking;
 
+  @Post('create')
+  @Roles('CUSTOMER')
+  @ApiOperation({ summary: 'Create a booking' })
+  @ApiResponse({ status: 201, type: BookingResponseDto })
+  async createBooking(@Request() req, @Body() dto: CreateBookingDto) {
+    return this.bookingService.createBooking(dto, req.user.id);
+  }
 
-}
+  @Get()
+  @ApiOperation({ summary: 'Get all bookings for logged-in user' })
+  async getBookings(@Request() req) {
+    return this.bookingService.getAllBookings(req.user.id);
+  }
 
+  @Get(':id')
+  @ApiOperation({ summary: 'Get booking by ID' })
+  @ApiParam({ name: 'id', example: 'uuid-booking' })
+  async getBookingById(@Param('id') id: string, @Request() req) {
+    return this.bookingService.getBookingById(id, req.user.id);
+  }
 
-@ApiOperation({ summary: 'Get all mechanic services' })
-@ApiResponse({type: [bookingResponseDto], status: 200,  description: 'List of boookings' })
-@Get()
-async getMechanicBooking(@Request() req) {
-  const id = req.user.id
-  return this.bookingService.getMechanicBooking(id)
-}
+  @Patch(':id/status')
+  @Roles('MECHANIC')
+  @ApiOperation({ summary: 'Update booking status (mechanic only)' })
+  async updateStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateBookingStatusDto,
+    @Request() req,
+  ) {
+    return this.bookingService.updateBookingStatus(id, dto, req.user.id);
+  }
 
+  @Delete(':id')
+  @Roles('CUSTOMER')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Cancel booking (customer only)' })
+  async cancelBooking(@Param('id') id: string, @Request() req) {
+    return this.bookingService.cancelBooking(id, req.user.id);
+  }
 }

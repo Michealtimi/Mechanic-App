@@ -9,33 +9,50 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.bookingResponseDto = void 0;
+exports.BookingResponseDto = void 0;
 const swagger_1 = require("@nestjs/swagger");
-const class_validator_1 = require("class-validator");
-class bookingResponseDto {
+const class_transformer_1 = require("class-transformer");
+const creating_booking_dto_1 = require("./creating-booking.dto");
+class BookingResponseDto {
+    id;
     mechanicId;
     serviceId;
-    schedudledAt;
+    scheduledAt;
     status;
+    customerId;
 }
-exports.bookingResponseDto = bookingResponseDto;
+exports.BookingResponseDto = BookingResponseDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'mechanic id', description: 'Unique ID of the mechanic ' }),
-    (0, class_validator_1.IsUUID)(),
+    (0, class_transformer_1.Expose)(),
+    (0, swagger_1.ApiProperty)({ example: 'uuid-booking' }),
     __metadata("design:type", String)
-], bookingResponseDto.prototype, "mechanicId", void 0);
+], BookingResponseDto.prototype, "id", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'uuid-of-service', description: 'Unique ID of the service' }),
-    (0, class_validator_1.IsUUID)(),
+    (0, class_transformer_1.Expose)(),
+    (0, swagger_1.ApiProperty)({ example: 'uuid-mechanic' }),
     __metadata("design:type", String)
-], bookingResponseDto.prototype, "serviceId", void 0);
+], BookingResponseDto.prototype, "mechanicId", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: new Date().toISOString(), description: 'Date the service was created' }),
-    (0, class_validator_1.IsDateString)(),
+    (0, class_transformer_1.Expose)(),
+    (0, swagger_1.ApiProperty)({ example: 'uuid-service' }),
+    __metadata("design:type", String)
+], BookingResponseDto.prototype, "serviceId", void 0);
+__decorate([
+    (0, class_transformer_1.Expose)(),
+    (0, swagger_1.ApiProperty)({
+        example: new Date().toISOString(),
+        description: 'Scheduled date/time',
+    }),
     __metadata("design:type", Date)
-], bookingResponseDto.prototype, "schedudledAt", void 0);
+], BookingResponseDto.prototype, "scheduledAt", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'ststus', description: 'status of Service' }),
+    (0, class_transformer_1.Expose)(),
+    (0, swagger_1.ApiProperty)({ enum: creating_booking_dto_1.BookingStatus }),
     __metadata("design:type", String)
-], bookingResponseDto.prototype, "status", void 0);
+], BookingResponseDto.prototype, "status", void 0);
+__decorate([
+    (0, class_transformer_1.Expose)(),
+    (0, swagger_1.ApiProperty)({ example: 'uuid-customer' }),
+    __metadata("design:type", String)
+], BookingResponseDto.prototype, "customerId", void 0);
 //# sourceMappingURL=bookingresponse.dto.js.map

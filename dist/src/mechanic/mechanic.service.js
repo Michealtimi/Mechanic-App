@@ -12,113 +12,222 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.MechanicService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../../prisma/prisma.service");
+const class_transformer_1 = require("class-transformer");
+const service_response_dto_1 = require("./dto/service-response.dto");
+const mechanic_profile__response_dto_1 = require("./dto/mechanic-profile--response.dto");
 let MechanicService = class MechanicService {
     prisma;
     constructor(prisma) {
         this.prisma = prisma;
     }
     async getMechanicProfile(id) {
-        const mechanic = await this.prisma.user.findUnique({
-            where: { id },
-            select: { id: true, email: true, role: true }
-        });
-        if (!mechanic) {
-            throw new common_1.NotFoundException('Mechanic profile not found');
+        try {
+            const mechanic = await this.prisma.user.findUnique({
+                where: { id },
+                select: {
+                    id: true,
+                    email: true,
+                    role: true,
+                    shopName: true,
+                    location: true,
+                    skills: true,
+                    profilePictureUrl: true,
+                    bio: true,
+                    experienceYears: true,
+                    certificationUrls: true,
+                    createdAt: true,
+                    updatedAt: true,
+                }
+            });
+            if (!mechanic) {
+                throw new common_1.NotFoundException('Mechanic profile not found');
+            }
+            return {
+                success: true,
+                message: 'Mechanic profile Fetched successfully',
+                data: (0, class_transformer_1.plainToInstance)(mechanic_profile__response_dto_1.MechanicProfileResponseDto, mechanic, {
+                    excludeExtraneousValues: true,
+                }),
+            };
         }
-        return mechanic;
+        catch (error) {
+            throw new common_1.InternalServerErrorException(error.message || 'Failed to get mechanic profile');
+        }
     }
-    async updateMechanicProfile(dto, id) {
-        const existing = await this.prisma.user.update({
-            where: { id },
-            select: { id: true, email: true, role: true },
-            data: {
-                ...dto,
-                skills: Array.isArray(dto.skills) ? dto.skills : (dto.skills ? [dto.skills] : undefined)
-            },
-        });
-        if (!existing) {
-            throw new common_1.NotFoundException('Mechanic profile not found');
+    async updateMechanicProfile(id, dto) {
+        try {
+            const mechanic = await this.prisma.user.update({
+                where: { id },
+                data: dto,
+                select: {
+                    id: true,
+                    email: true,
+                    role: true,
+                    shopName: true,
+                    location: true,
+                    skills: true,
+                    profilePictureUrl: true,
+                    bio: true,
+                    experienceYears: true,
+                    certificationUrls: true,
+                    createdAt: true,
+                    updatedAt: true,
+                },
+            });
+            return {
+                success: true,
+                message: 'Mechanic profile updated successfully',
+                data: (0, class_transformer_1.plainToInstance)(mechanic_profile__response_dto_1.MechanicProfileResponseDto, mechanic, {
+                    excludeExtraneousValues: true,
+                }),
+            };
         }
-        return this.prisma.user.update({
-            where: { id },
-            data: {
-                ...dto,
-                id,
-                skills: Array.isArray(dto.skills) ? dto.skills : (dto.skills ? [dto.skills] : undefined)
-            },
-        });
+        catch (error) {
+            throw new common_1.InternalServerErrorException(error.message || 'Failed to update mechanic profile');
+        }
     }
     async saveCertification(id, filename) {
-        return this.prisma.user.update({
-            where: { id },
-            data: {
-                certificationUrls: {
-                    push: filename
-                }
-            },
-        });
+        try {
+            const updated = await this.prisma.user.update({
+                where: { id },
+                data: {
+                    certificationUrls: { push: filename },
+                },
+            });
+            return {
+                success: true,
+                message: 'Certification saved successfully',
+                data: updated.certificationUrls
+            };
+        }
+        catch (error) {
+            throw new common_1.InternalServerErrorException(error.message || 'Failed to save certification');
+        }
     }
     async uploadProfilePicture(id, file) {
-        return this.prisma.user.update({
-            where: { id },
-            data: {
-                profilePictureUrl: file.filename,
-            },
-        });
+        try {
+            const updated = await this.prisma.user.update({
+                where: { id },
+                data: { profilePictureUrl: file.filename },
+                select: {
+                    id: true,
+                    email: true,
+                    role: true,
+                    shopName: true,
+                    location: true,
+                    skills: true,
+                    profilePictureUrl: true,
+                    bio: true,
+                    experienceYears: true,
+                    certificationUrls: true,
+                    createdAt: true,
+                    updatedAt: true,
+                },
+            });
+            return {
+                success: true,
+                message: 'Profile picture uploaded successfully',
+                data: (0, class_transformer_1.plainToInstance)(mechanic_profile__response_dto_1.MechanicProfileResponseDto, updated, {
+                    excludeExtraneousValues: true,
+                }),
+            };
+        }
+        catch (error) {
+            throw new common_1.InternalServerErrorException(error.message || 'Failed to upload profile picture');
+        }
     }
-    async createService(dto, mechanicId) {
-        const mechanic = await this.prisma.user.findUnique({
-            where: { id: mechanicId }
-        });
-        if (!mechanic) {
-            throw new common_1.NotFoundException('Mechanic not found');
+    async createService(mechanicId, dto) {
+        try {
+            const mechanic = await this.prisma.user.findUnique({
+                where: { id: mechanicId },
+            });
+            if (!mechanic) {
+                throw new common_1.NotFoundException('Mechanic not found');
+            }
+            const service = await this.prisma.mechanicService.create({
+                data: { ...dto, mechanicId: mechanicId
+                },
+            });
+            return {
+                success: true,
+                message: 'Service created successfully',
+                data: (0, class_transformer_1.plainToInstance)(service_response_dto_1.ServiceResponseDto, service, {
+                    excludeExtraneousValues: true,
+                }),
+            };
         }
-        ``;
-        return this.prisma.mechanicService.create({
-            data: {
-                ...dto,
-                mechanicId: mechanic.id,
-            },
-        });
+        catch (error) {
+            throw new common_1.InternalServerErrorException(error.message || 'Failed to create service');
+        }
     }
-    async getallMechanicservice(id) {
-        const mechanic = await this.prisma.user.findUnique({
-            where: { id },
-        });
-        if (!mechanic) {
-            throw new common_1.NotFoundException('Mechanic not found');
+    async getAllMechanicServices(mechanicId) {
+        try {
+            const mechanic = await this.prisma.user.findUnique({
+                where: { id: mechanicId },
+            });
+            if (!mechanic) {
+                throw new common_1.NotFoundException('Mechanic not found');
+            }
+            const services = await this.prisma.mechanicService.findMany({
+                where: { mechanicId },
+            });
+            return {
+                success: true,
+                message: 'Mechanic services retrieved successfully',
+                data: (0, class_transformer_1.plainToInstance)(service_response_dto_1.ServiceResponseDto, services, {
+                    excludeExtraneousValues: true,
+                }),
+            };
         }
-        return this.prisma.mechanicService.findMany({
-            where: {
-                mechanicId: mechanic.id,
-            },
-        });
+        catch (error) {
+            throw new common_1.InternalServerErrorException(error.message || 'Failed to retrieve services');
+        }
     }
-    async UpdateMechanicService(dto, id, mechanicId) {
-        const existing = await this.prisma.mechanicService.findUnique({
-            where: { id },
-        });
-        if (!existing) {
-            throw new common_1.NotFoundException('Service not found');
+    async updateMechanicService(id, mechanicId, dto) {
+        try {
+            const existing = await this.prisma.mechanicService.findUnique({
+                where: { id },
+            });
+            if (!existing) {
+                throw new common_1.NotFoundException('Service not found');
+            }
+            if (existing.mechanicId !== mechanicId) {
+                throw new common_1.ForbiddenException('You are not authorized to update this service');
+            }
+            const updated = await this.prisma.mechanicService.update({
+                where: { id },
+                data: { ...dto },
+            });
+            return {
+                success: true,
+                message: 'Service updated successfully',
+                data: (0, class_transformer_1.plainToInstance)(service_response_dto_1.ServiceResponseDto, updated, {
+                    excludeExtraneousValues: true,
+                }),
+            };
         }
-        if (existing.mechanicId !== mechanicId) {
-            throw new common_1.ForbiddenException('You are not authorized to update this service');
+        catch (error) {
+            throw new common_1.InternalServerErrorException(error.message || 'Failed to update service');
         }
-        return this.prisma.mechanicService.update({
-            where: { id },
-            data: { ...dto },
-        });
     }
-    async DeleteMechanicService(id, mechanicId) {
-        const service = await this.prisma.mechanicService.findUnique({
-            where: { id },
-        });
-        if (!service || service.mechanicId !== mechanicId) {
-            throw new common_1.ForbiddenException('You are not authorized to delete this service');
+    async deleteMechanicService(id, mechanicId) {
+        try {
+            const service = await this.prisma.mechanicService.findUnique({
+                where: { id },
+            });
+            if (!service || service.mechanicId !== mechanicId) {
+                throw new common_1.ForbiddenException('You are not authorized to delete this service');
+            }
+            await this.prisma.mechanicService.delete({ where: { id } });
+            return {
+                success: true,
+                message: 'Service deleted successfully',
+                data: null,
+            };
         }
-        return this.prisma.mechanicService.delete({
-            where: { id }
-        });
+        catch (error) {
+            throw new common_1.InternalServerErrorException(error.message || 'Failed to delete service');
+        }
     }
 };
 exports.MechanicService = MechanicService;

@@ -1,8 +1,3 @@
-// prisma/schema.prisma
-
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,8 +5,55 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  // uncomment next line if you use Prisma <5.10
-  // directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+model User {
+  id                String            @id @default(uuid())
+  email             String            @unique
+  password          String
+  role              Role              @default(CUSTOMER)
+  status            String            @default("PENDING")
+  shopName          String?
+  location          String?
+  skills            String[]
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  experienceYears   Int?
+  profilePictureUrl String?
+  bio               String?
+  certificationUrls String[]
+  CustomerBookings  Booking[]         @relation("CustomerBookings")
+  MechanicBookings  Booking[]         @relation("MechanicBookings")
+  mechanicServices  MechanicService[]
+  deletedAt         DateTime?
+}
+
+model MechanicService {
+  id            String    @id @default(uuid())
+  title         String
+  description   String?
+  price         Float
+  estimatedTime String?
+  availability  String?
+  mechanicId    String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  bookings      Booking[]
+  mechanic      User      @relation(fields: [mechanicId], references: [id])
+}
+
+model Booking {
+  id          String          @id @default(uuid())
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  customerId  String
+  mechanicId  String
+  serviceId   String
+  status      BookingStatus   @default(PENDING)
+  scheduledAt DateTime
+  customer    User            @relation("CustomerBookings", fields: [customerId], references: [id])
+  mechanic    User            @relation("MechanicBookings", fields: [mechanicId], references: [id])
+  service     MechanicService @relation(fields: [serviceId], references: [id])
 }
 
 enum Role {
@@ -20,87 +62,15 @@ enum Role {
   CUSTOMER
 }
 
-model User {
-  id                  String           @id @default(uuid())
-  email               String           @unique
-  password            String
-  role                Role             @default(CUSTOMER)
-  status    String   @default("PENDING") // Add this line
-
-  // Mechanic-specific profile fields (these belong directly to the User's profile)
-  shopName            String?
-  location            String?
-  skills              String[]
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
-  experienceYears     Int?
-  profilePictureUrl   String?
-  bio                 String?
-
-  certificationUrls   String[] // Stores an array of strings {"url1", "url2"}
-
-  // Relationship to MechanicService: One User (Mechanic) can have many MechanicServices
-  mechanicServices    MechanicService[]
-
-  CustomerBookings Booking[] @relation("CustomerBookings")
-  MechanicBookings Booking[] @relation("MechanicBookings")
-
-}
-
-// New model for Mechanic Services
-model MechanicService {
-  id                  String    @id @default(uuid())
-  title               String    // Made required, as a service usually needs a title
-  description         String?
-  price               Float     // Made required, as a service usually has a price
-  estimatedTime       String?   // E.g., "1 hour", "30 mins", "2-4 hours"
-  availability        String?   // Could be a JSON string, or you could create a separate Availability model if complex
-                                // For simple availability, you might use an array of strings, e.g., ["Mon", "Wed", "Fri"]
-                                // or a more complex JSON structure. Keep it as String? for now if unsure.
-
-  // Relationship back to the User (Mechanic) who offers this service
-  mechanic            User      @relation(fields: [mechanicId], references: [id])
-  mechanicId          String    // Foreign key to link to the User model
-  bookings Booking[]
-
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
-}
-
 enum Status {
   PENDING
   APPROVED
   REJECTED
 }
 
-
-
-// this is the enum for the booking 
-
 enum BookingStatus {
   PENDING
   CONFIRMED
   COMPLETED
   CANCELLED
-}
-
-
-// new model for booking
-
-model Booking {
-  id           String           @id @default(uuid())
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
-
-  customer     User             @relation("CustomerBookings", fields: [customerId], references: [id])
-  customerId   String
-
-  mechanic     User             @relation("MechanicBookings", fields: [mechanicId], references: [id])
-  mechanicId   String
-
-  service      MechanicService  @relation(fields: [serviceId], references: [id])
-  serviceId    String
-
-  status       BookingStatus    @default(PENDING)
-  scheduledAt  DateTime
 }

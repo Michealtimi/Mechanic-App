@@ -7,6 +7,5 @@ import { BookingModule } from './booking/booking.module';
 
 @Module({
   imports: [AuthModule, UsersModule, MechanicModule, BookingModule],
-  
 })
 export class AppModule {}

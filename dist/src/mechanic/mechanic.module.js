@@ -18,7 +18,7 @@ exports.MechanicModule = MechanicModule = __decorate([
     (0, common_1.Module)({
         imports: [users_module_1.UsersModule],
         controllers: [mechanic_controller_1.MechanicController],
-        providers: [mechanic_service_1.MechanicService]
+        providers: [mechanic_service_1.MechanicService],
     })
 ], MechanicModule);
 //# sourceMappingURL=mechanic.module.js.map

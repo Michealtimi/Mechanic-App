@@ -15,61 +15,101 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.UsersController = void 0;
 const common_1 = require("@nestjs/common");
 const users_service_1 = require("./users.service");
-const jwt_guard_1 = require("../auth/jwt.guard");
-const client_1 = require("@prisma/client");
-const roles_guards_1 = require("../common/guard/roles.guards");
-const roles_decorators_1 = require("../common/decorators/roles.decorators");
+const signup_customer_dto_1 = require("./dto/signup-customer.dto");
+const signup_mechanic_dto_1 = require("./dto/signup-mechanic.dto");
 const create_user_dto_1 = require("./dto/create-user.dto");
+const update_user_dto_1 = require("./dto/update-user.dto");
 const swagger_1 = require("@nestjs/swagger");
 let UsersController = class UsersController {
     usersService;
     constructor(usersService) {
         this.usersService = usersService;
     }
-    getMyUser(id, req) {
-        return this.usersService.getMyUser(id, req);
+    signupCustomer(dto) {
+        return this.usersService.signupCustomer(dto);
     }
-    getAdminData() {
-        return { message: 'Only admins can see this' };
+    signupMechanic(dto) {
+        return this.usersService.signupMechanic(dto);
     }
-    getUsers() {
-        return this.usersService.getUsers();
+    createUser(dto) {
+        return this.usersService.createUser(dto);
     }
-    async createMechanciAsAdmin(dto) {
-        dto.role = client_1.Role.MECHANIC;
-        return this.usersService.createUserWithRole(dto);
+    getAllUsers(page, limit) {
+        return this.usersService.getAllUsers(Number(page), Number(limit));
+    }
+    getUserById(id) {
+        return this.usersService.getUserById(id);
+    }
+    updateUser(id, dto) {
+        return this.usersService.updateUser(id, dto);
+    }
+    deleteUser(id) {
+        return this.usersService.deleteUser(id);
     }
 };
 exports.UsersController = UsersController;
 __decorate([
-    (0, common_1.UseGuards)(jwt_guard_1.JwtAuthGuard),
-    (0, common_1.Get)(':id'),
-    __param(0, (0, common_1.Param)('id')),
-    __param(1, (0, common_1.Req)()),
+    (0, common_1.Post)('signup-customer'),
+    (0, swagger_1.ApiOperation)({ summary: 'Sign up as customer' }),
+    __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:paramtypes", [signup_customer_dto_1.SignupCustomerDto]),
     __metadata("design:returntype", void 0)
-], UsersController.prototype, "getMyUser", null);
+], UsersController.prototype, "signupCustomer", null);
 __decorate([
-    (0, common_1.UseGuards)(jwt_guard_1.JwtAuthGuard, roles_guards_1.RolesGuard),
-    (0, roles_decorators_1.Roles)(client_1.Role.ADMIN),
-    (0, common_1.Get)('admin-only'),
+    (0, common_1.Post)('signup-mechanic'),
+    (0, swagger_1.ApiOperation)({ summary: 'Sign up as mechanic' }),
+    __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [signup_mechanic_dto_1.SignupMechanicDto]),
     __metadata("design:returntype", void 0)
-], UsersController.prototype, "getAdminData", null);
+], UsersController.prototype, "signupMechanic", null);
 __decorate([
-    (0, common_1.UseGuards)(jwt_guard_1.JwtAuthGuard, roles_guards_1.RolesGuard),
-    (0, roles_decorators_1.Roles)(client_1.Role.ADMIN),
-    (0, common_1.Post)('create-mechanic'),
-    (0, swagger_1.ApiOperation)({ summary: 'Admin creates a mechanic' }),
-    (0, swagger_1.ApiResponse)({ status: 201, description: 'Mechanic created successfully' }),
+    (0, common_1.Post)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Create a new user (admin)' }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [create_user_dto_1.CreateUserDto]),
-    __metadata("design:returntype", Promise)
-], UsersController.prototype, "createMechanciAsAdmin", null);
+    __metadata("design:returntype", void 0)
+], UsersController.prototype, "createUser", null);
+__decorate([
+    (0, common_1.Get)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Get all users (paginated)' }),
+    (0, swagger_1.ApiQuery)({ name: 'page', required: false, example: 1 }),
+    (0, swagger_1.ApiQuery)({ name: 'limit', required: false, example: 10 }),
+    __param(0, (0, common_1.Query)('page')),
+    __param(1, (0, common_1.Query)('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Number, Number]),
+    __metadata("design:returntype", void 0)
+], UsersController.prototype, "getAllUsers", null);
+__decorate([
+    (0, common_1.Get)(':id'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get user by ID' }),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], UsersController.prototype, "getUserById", null);
+__decorate([
+    (0, common_1.Patch)(':id'),
+    (0, swagger_1.ApiOperation)({ summary: 'Update user' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, update_user_dto_1.UpdateUserDto]),
+    __metadata("design:returntype", void 0)
+], UsersController.prototype, "updateUser", null);
+__decorate([
+    (0, common_1.Delete)(':id'),
+    (0, swagger_1.ApiOperation)({ summary: 'Soft delete user' }),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], UsersController.prototype, "deleteUser", null);
 exports.UsersController = UsersController = __decorate([
+    (0, swagger_1.ApiTags)('Users'),
     (0, common_1.Controller)('users'),
     __metadata("design:paramtypes", [users_service_1.UsersService])
 ], UsersController);

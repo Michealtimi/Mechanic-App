@@ -19,11 +19,18 @@ let RolesGuard = class RolesGuard {
         this.reflector = reflector;
     }
     canActivate(context) {
-        const requiredRoles = this.reflector.getAllAndOverride(roles_decorators_1.ROLES_KEY, [context.getHandler(), context.getClass()]);
-        if (!requiredRoles)
+        const requiredRoles = this.reflector.getAllAndOverride(roles_decorators_1.ROLES_KEY, [
+            context.getHandler(),
+            context.getClass(),
+        ]);
+        if (!requiredRoles) {
             return true;
+        }
         const { user } = context.switchToHttp().getRequest();
-        return requiredRoles.includes(user.role);
+        if (!requiredRoles.includes(user.role)) {
+            throw new common_1.ForbiddenException('You do not have permission to perform this action');
+        }
+        return true;
     }
 };
 exports.RolesGuard = RolesGuard;

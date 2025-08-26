@@ -28,27 +28,27 @@ __decorate([
     __metadata("design:type", String)
 ], ServiceResponseDto.prototype, "id", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'Oil Change', description: 'Title of the mechanic service' }),
+    (0, swagger_1.ApiProperty)({ example: 'Oil Change', description: 'Service title' }),
     __metadata("design:type", String)
 ], ServiceResponseDto.prototype, "title", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: 'Complete engine oil replacement', description: 'Detailed description of the service' }),
+    (0, swagger_1.ApiPropertyOptional)({ example: 'Complete engine oil replacement', description: 'Detailed service description' }),
     __metadata("design:type", Object)
 ], ServiceResponseDto.prototype, "description", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 5000, description: 'Price in Naira or preferred currency' }),
+    (0, swagger_1.ApiProperty)({ example: 5000, description: 'Price of the service' }),
     __metadata("design:type", Number)
 ], ServiceResponseDto.prototype, "price", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: '2 hours', description: 'Estimated time to complete the service' }),
+    (0, swagger_1.ApiPropertyOptional)({ example: '2 hours', description: 'Estimated completion time' }),
     __metadata("design:type", Object)
 ], ServiceResponseDto.prototype, "estimatedTime", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: 'Weekdays only', description: 'Mechanic availability for this service' }),
+    (0, swagger_1.ApiPropertyOptional)({ example: 'Weekdays only', description: 'Availability of the service' }),
     __metadata("design:type", Object)
 ], ServiceResponseDto.prototype, "availability", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'uuid-of-mechanic', description: 'ID of the mechanic offering this service' }),
+    (0, swagger_1.ApiProperty)({ example: 'uuid-of-mechanic', description: 'Mechanic ID offering this service' }),
     __metadata("design:type", String)
 ], ServiceResponseDto.prototype, "mechanicId", void 0);
 __decorate([

@@ -1,20 +1,17 @@
-import { IsEmail, IsEnum, IsOptional, IsString } from 'class-validator';
-import { Role } from '@prisma/client'; // or wherever your Role enum is
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
 
 export class CreateUserDto {
- @ApiProperty({ example: 'test@gmail.com', description: 'Unique emailof mechanic ' })
+  @ApiProperty({ example: 'admincreated@example.com' })
   @IsEmail()
   email: string;
 
-  
-  
-@ApiProperty({ example: 'password', description: 'Unique password of mechanic ' })
+  @ApiProperty({ example: 'secret123' })
   @IsString()
   password: string;
 
-@ApiPropertyOptional({ example: 'Lagos, Nigeria', description: 'Location of the mechanic' })
-  @IsEnum(Role)
+  @ApiPropertyOptional({ example: 'CUSTOMER' })
   @IsOptional()
-  role?: Role; // Only usable by admins
+  @IsString()
+  role?: string;
 }

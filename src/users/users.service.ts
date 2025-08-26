@@ -1,112 +1,230 @@
+/* eslint-disable prettier/prettier */
+ 
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+ 
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable prettier/prettier */
 import {
-  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
-import { Request } from 'express';
-import { Role, User } from '@prisma/client';
-import { CreateMechanicDto } from 'src/mechanic/dto/mechanic.dto';
-import * as bcrypt from 'bcryptjs';
 import { PrismaService } from 'prisma/prisma.service';
+
+import { SignupMechanicDto } from './dto/signup-mechanic.dto';
 import { CreateUserDto } from './dto/create-user.dto';
+
+import { plainToInstance } from 'class-transformer';
+
+import * as bcrypt from 'bcryptjs';
+import { Role } from '@prisma/client';
+import { SignupCustomerDto } from './dto/signup-customer.dto';
+import { UserResponseDto } from './dto/user-response.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  // Get current authenticated user
-  async getMyUser(id: string, req: Request) {
+  /**
+   * Customer signup
+   */
+  async signupCustomer(dto: SignupCustomerDto) {
     try {
-      const user = await this.prisma.user.findUnique({ where: { id } });
+      // formatting email
+      const email = dto.email.toLowerCase();
 
-      if (!user) {
-        throw new NotFoundException('User not found');
-      }
+      // check if  email already exit
+      const existing = await this.prisma.user.findUnique({ where: { email } });
+      if (existing) throw new BadRequestException('Email already exists');
 
-      const decodedUser = req.user as { id?: string; email?: string };
-      if (!decodedUser?.id || user.id !== decodedUser.id) {
-        throw new ForbiddenException('You are not authorized to access this resource');
-      }
-
-      const { password, ...userWithoutPassword } = user;
-      return userWithoutPassword;
-
-    } catch (error) {
-      throw new InternalServerErrorException(error.message);
-    }
-  }
-
-  // Register a new mechanic
-  async createMechanic(dto: CreateMechanicDto) {
-    try {
-      const hashedPassword = await this.hashPassword(dto.password);
-      const skills = this.normalizeSkills(dto.skills);
+      const hashedPassword = await bcrypt.hash(dto.password, 10);
 
       const user = await this.prisma.user.create({
         data: {
-          email: dto.email,
+          email,
+          password: hashedPassword,
+          role: Role.CUSTOMER,
+        },
+      });
+
+      return {
+        success: true,
+        message: 'Customer signup successful',
+        data: plainToInstance(UserResponseDto, user, { excludeExtraneousValues: true }),
+      };
+    } catch (error) {
+      throw new InternalServerErrorException(error.message || 'Customer signup failed');
+    }
+  }
+
+  /**
+   * Mechanic signup
+   */
+  async signupMechanic(dto: SignupMechanicDto) {
+    try {
+    // email formatting
+      const email = dto.email.toLowerCase();
+
+      const existing = await this.prisma.user.findUnique({ where: { email } });
+      if (existing) throw new BadRequestException('Email already exists');
+
+      const hashedPassword = await bcrypt.hash(dto.password, 10);
+      const skills = Array.isArray(dto.skills) ? dto.skills.filter(s => typeof s === 'string') : [];
+
+      const user = await this.prisma.user.create({
+        data: {
+          email,
           password: hashedPassword,
           role: Role.MECHANIC,
           shopName: dto.shopName,
-          location: dto.location,
           skills,
+          status: 'PENDING',
         },
       });
 
-      const { password, ...rest } = user;
-      return rest;
-
+      return {
+        success: true,
+        message: 'Mechanic signup successful',
+        data: plainToInstance(UserResponseDto, user, { excludeExtraneousValues: true }),
+      };
     } catch (error) {
-      throw new InternalServerErrorException(error.message);
+      throw new InternalServerErrorException(error.message || 'Mechanic signup failed');
     }
   }
 
-  // Get a list of users (light version)
-  async getUsers() {
+  /**
+   * Create user (admin use) this is only for the admin
+   */
+  async createUser(dto: CreateUserDto) {
     try {
-      return await this.prisma.user.findMany({
-        select: {
-          id: true,
-          email: true,
-        },
-      });
-    } catch (error) {
-      throw new InternalServerErrorException(error.message);
-    }
-  }
+      const email = dto.email.toLowerCase();
+      const existing = await this.prisma.user.findUnique({ where: { email } });
+      if (existing) throw new BadRequestException('Email already exists');
 
-  // Create user with role
-  async createUserWithRole(dto: CreateUserDto) {
-    try {
-      const hashedPassword = await this.hashPassword(dto.password);
+      const hashedPassword = await bcrypt.hash(dto.password, 10);
+
+      const role = (dto.role as Role) ?? Role.CUSTOMER;
 
       const user = await this.prisma.user.create({
-        data: {
-          email: dto.email,
-          password: hashedPassword,
-          role: dto.role ?? Role.CUSTOMER,
-        },
+        data: { email, password: hashedPassword, role },
       });
 
-      const { password, ...rest } = user;
-      return rest;
-
+      return {
+        success: true,
+        message: 'User created',
+        data: plainToInstance(UserResponseDto, user, { excludeExtraneousValues: true }),
+      };
     } catch (error) {
-      throw new InternalServerErrorException(error.message);
+      throw new InternalServerErrorException(error.message || 'Create user failed');
     }
   }
 
-  // Utility: Hash password
-  private async hashPassword(password: string): Promise<string> {
-    return bcrypt.hash(password, 10);
+  /**
+   * Get all users (paginated)
+   */
+  async getAllUsers(page = 1, limit = 10) {
+    try {
+      const take = Math.max(1, limit);
+      const skip = Math.max(0, (page - 1) * take);
+      const where = { deletedAt: null };
+
+      const [users, total] = await this.prisma.$transaction([
+        this.prisma.user.findMany({ where, take, skip }),
+        this.prisma.user.count({ where }),
+      ]);
+
+      if (!users.length) {
+        throw new NotFoundException('No users found');
+      }
+
+      return {
+        success: true,
+        message: 'Users retrieved successfully',
+        data: {
+          users: plainToInstance(UserResponseDto, users, { excludeExtraneousValues: true }),
+          pagination: {
+            page,
+            limit: take,
+            total,
+            totalPages: Math.ceil(total / take),
+          },
+        },
+      };
+    } catch (error) {
+      throw new InternalServerErrorException(error.message || 'Error fetching users');
+    }
   }
 
-  // Utility: Normalize skills input
-  private normalizeSkills(input: any): string[] {
-    if (Array.isArray(input)) {
-      return input.filter((skill): skill is string => typeof skill === 'string');
+  /**
+   * Get single user by ID
+   */
+  async getUserById(id: string) {
+    try {
+      const user = await this.prisma.user.findUnique({ where: { id } });
+      if (!user) throw new NotFoundException('User not found');
+
+      return {
+        success: true,
+        message: 'User retrieved',
+        data: plainToInstance(UserResponseDto, user, { excludeExtraneousValues: true }),
+      };
+    } catch (error) {
+      throw new InternalServerErrorException(error.message || 'Error fetching user');
     }
-    return typeof input === 'string' ? [input] : [];
+  }
+
+  /**
+   * Update user
+   */
+  async updateUser(id: string, dto: UpdateUserDto) {
+    try {
+      const existing = await this.prisma.user.findUnique({ where: { id } });
+      if (!existing) throw new NotFoundException('User not found');
+
+      const updateData: any = {
+        ...dto,
+        ...(dto.email && { email: dto.email.toLowerCase() }),
+        ...(dto.fullName && { fullName: dto.fullName.toUpperCase() }),
+      };
+
+      if (dto.password) {
+        updateData.password = await bcrypt.hash(dto.password, 10);
+      }
+
+      const updated = await this.prisma.user.update({ where: { id }, data: updateData });
+
+      return {
+        success: true,
+        message: 'User updated successfully',
+        data: plainToInstance(UserResponseDto, updated, { excludeExtraneousValues: true }),
+      };
+    } catch (error) {
+      throw new InternalServerErrorException(error.message || 'Error updating user');
+    }
+  }
+
+  /**
+   * Soft delete
+   */
+  async deleteUser(id: string) {
+    try {
+      const existing = await this.prisma.user.findUnique({ where: { id } });
+      if (!existing) throw new NotFoundException('User not found');
+
+      const deleted = await this.prisma.user.update({
+        where: { id },
+        data: { deletedAt: new Date() },
+      });
+
+      return {
+        success: true,
+        message: 'User deleted successfully',
+        data: plainToInstance(UserResponseDto, deleted, { excludeExtraneousValues: true }),
+      };
+    } catch (error) {
+      throw new InternalServerErrorException(error.message || 'Error deleting user');
+    }
   }
 }

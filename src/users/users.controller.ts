@@ -1,47 +1,66 @@
-import { Controller, Get, Param, Req, UseGuards, SetMetadata, Body, Post } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Query,
+  Param,
+  Patch,
+  Delete,
+} from '@nestjs/common';
 import { UsersService } from './users.service';
-import { JwtAuthGuard } from 'src/auth/jwt.guard';
-import { Request } from 'express';
-import { Role } from '@prisma/client';
-import { RolesGuard } from 'src/common/guard/roles.guards';
-import { Roles } from 'src/common/decorators/roles.decorators';
+import { SignupCustomerDto } from './dto/signup-customer.dto';
+import { SignupMechanicDto } from './dto/signup-mechanic.dto';
 import { CreateUserDto } from './dto/create-user.dto';
-import { dot } from 'node:test/reporters';
-import { ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { ApiTags, ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
 
+@ApiTags('Users')
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  @UseGuards(JwtAuthGuard)
+  @Post('signup-customer')
+  @ApiOperation({ summary: 'Sign up as customer' })
+  signupCustomer(@Body() dto: SignupCustomerDto) {
+    return this.usersService.signupCustomer(dto);
+  }
+
+  @Post('signup-mechanic')
+  @ApiOperation({ summary: 'Sign up as mechanic' })
+  signupMechanic(@Body() dto: SignupMechanicDto) {
+    return this.usersService.signupMechanic(dto);
+  }
+
+  @Post()
+  @ApiOperation({ summary: 'Create a new user (admin)' })
+  createUser(@Body() dto: CreateUserDto) {
+    return this.usersService.createUser(dto);
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'Get all users (paginated)' })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 10 })
+  getAllUsers(@Query('page') page?: number, @Query('limit') limit?: number) {
+    return this.usersService.getAllUsers(Number(page), Number(limit));
+  }
+
   @Get(':id')
-  getMyUser(@Param('id') id: string, @Req() req: Request) {
-    return this.usersService.getMyUser(id, req);
+  @ApiOperation({ summary: 'Get user by ID' })
+  getUserById(@Param('id') id: string) {
+    return this.usersService.getUserById(id);
   }
 
+  @Patch(':id')
+  @ApiOperation({ summary: 'Update user' })
+  updateUser(@Param('id') id: string, @Body() dto: UpdateUserDto) {
+    return this.usersService.updateUser(id, dto);
+  }
 
- @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.ADMIN)
-@Get('admin-only')
-getAdminData() {
-  return { message: 'Only admins can see this' };
+  @Delete(':id')
+  @ApiOperation({ summary: 'Soft delete user' })
+  deleteUser(@Param('id') id: string) {
+    return this.usersService.deleteUser(id);
+  }
 }
-
-    getUsers() {
-    return this.usersService.getUsers();
-  }
-
-
-  @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.ADMIN)
-@Post('create-mechanic')
-@ApiOperation({ summary: 'Admin creates a mechanic' })
-@ApiResponse({ status: 201, description: 'Mechanic created successfully' })
-async createMechanciAsAdmin(@Body() dto : CreateUserDto){
-  dto.role = Role.MECHANIC
-  return this.usersService.createUserWithRole(dto)
-
-}  /// this enebale user to create mechanic as an admin
-}  
-
-

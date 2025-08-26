@@ -13,12 +13,15 @@ exports.UpdateServiceDto = void 0;
 const mapped_types_1 = require("@nestjs/mapped-types");
 const create_mechanic_service_dto_1 = require("./create-mechanic-service.dto");
 const swagger_1 = require("@nestjs/swagger");
-class UpdateServiceDto extends (0, mapped_types_1.PartialType)(create_mechanic_service_dto_1.CreatemechanicService) {
+const class_validator_1 = require("class-validator");
+class UpdateServiceDto extends (0, mapped_types_1.PartialType)(create_mechanic_service_dto_1.CreateMechanicServiceDto) {
     id;
 }
 exports.UpdateServiceDto = UpdateServiceDto;
 __decorate([
     (0, swagger_1.ApiProperty)({ example: 'uuid-of-service', description: 'The ID of the service being updated' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], UpdateServiceDto.prototype, "id", void 0);
 //# sourceMappingURL=update-service.dto.js.map

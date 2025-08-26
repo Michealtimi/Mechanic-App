@@ -26,11 +26,11 @@ class MechanicProfileResponseDto {
 }
 exports.MechanicProfileResponseDto = MechanicProfileResponseDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: '9f2131a3-4b2f-4129-82ab-1e781b3b7ef0', description: 'Unique identifier for the mechanic' }),
+    (0, swagger_1.ApiProperty)({ example: 'uuid-of-mechanic', description: 'Unique identifier for the mechanic' }),
     __metadata("design:type", String)
 ], MechanicProfileResponseDto.prototype, "id", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'mechanic@example.com', description: 'Email address of the mechanic' }),
+    (0, swagger_1.ApiProperty)({ example: 'mechanic@example.com', description: 'Email of the mechanic' }),
     __metadata("design:type", String)
 ], MechanicProfileResponseDto.prototype, "email", void 0);
 __decorate([
@@ -42,15 +42,15 @@ __decorate([
     __metadata("design:type", Object)
 ], MechanicProfileResponseDto.prototype, "location", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: 'Engine repair, oil change', description: 'Skills or specialties of the mechanic' }),
+    (0, swagger_1.ApiPropertyOptional)({ example: ['Engine repair', 'Oil change'], description: 'Skills or specialties' }),
     __metadata("design:type", Object)
 ], MechanicProfileResponseDto.prototype, "skills", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: 'https://example.com/profile.jpg', description: 'URL to profile picture' }),
+    (0, swagger_1.ApiPropertyOptional)({ example: 'https://example.com/profile.jpg', description: 'Profile picture URL' }),
     __metadata("design:type", Object)
 ], MechanicProfileResponseDto.prototype, "profilePictureUrl", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: 'Certified Toyota technician', description: 'Short biography or background' }),
+    (0, swagger_1.ApiPropertyOptional)({ example: 'Certified Toyota technician', description: 'Short bio' }),
     __metadata("design:type", Object)
 ], MechanicProfileResponseDto.prototype, "bio", void 0);
 __decorate([
@@ -58,7 +58,10 @@ __decorate([
     __metadata("design:type", Object)
 ], MechanicProfileResponseDto.prototype, "experienceYears", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: ['https://example.com/cert1.pdf', 'https://example.com/cert2.pdf'], description: 'URLs of uploaded certifications' }),
+    (0, swagger_1.ApiPropertyOptional)({
+        example: ['https://example.com/cert1.pdf', 'https://example.com/cert2.pdf'],
+        description: 'URLs of uploaded certifications',
+    }),
     __metadata("design:type", Object)
 ], MechanicProfileResponseDto.prototype, "certificationUrls", void 0);
 __decorate([
@@ -66,7 +69,7 @@ __decorate([
     __metadata("design:type", Date)
 ], MechanicProfileResponseDto.prototype, "createdAt", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: '2024-06-01T00:00:00Z', description: 'Profile last updated date' }),
+    (0, swagger_1.ApiProperty)({ example: '2024-06-01T00:00:00Z', description: 'Last updated date' }),
     __metadata("design:type", Date)
 ], MechanicProfileResponseDto.prototype, "updatedAt", void 0);
 //# sourceMappingURL=mechanic-profile--response.dto.js.map

@@ -1,6 +1,12 @@
+export declare enum BookingStatus {
+    PENDING = "PENDING",
+    CONFIRMED = "CONFIRMED",
+    COMPLETED = "COMPLETED",
+    CANCELLED = "CANCELLED"
+}
 export declare class CreateBookingDto {
     mechanicId: string;
     serviceId: string;
-    schedudledAt: Date;
-    status?: 'PENDING' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED';
+    scheduledAt: string;
+    status?: BookingStatus;
 }

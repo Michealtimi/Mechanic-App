@@ -1,7 +1,7 @@
-export declare class CreatemechanicService {
+export declare class CreateMechanicServiceDto {
     title: string;
-    description: string;
+    description?: string;
     price: number;
-    estimatedTime: string;
-    availability: string;
+    estimatedTime?: string;
+    availability?: string;
 }

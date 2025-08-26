@@ -1,45 +1,55 @@
-import { Body, Controller, Get, Post, Req, Res, ValidationPipe } from '@nestjs/common';
+/* eslint-disable prettier/prettier */
+ 
+ 
+/* eslint-disable prettier/prettier */
+import {
+  Body,
+  Controller,
+  Post,
+  UseGuards,
+  ValidationPipe,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthDto } from './dto/auth.dto';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { JwtAuthGuard } from './jwt.guard';
+import { RolesGuard } from 'src/common/guard/roles.guards';
+import { Roles } from 'src/common/decorators/roles.decorators';
+import { Role } from '@prisma/client';
+
 
 @ApiTags('Auth')
 @Controller('auth')
-@Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
-  
- 
+
   @Post('signup/customer')
   @ApiOperation({ summary: 'Sign up as a customer' })
   @ApiResponse({ status: 201, description: 'Customer created' })
-  signupCustomer(@Body(ValidationPipe) dto: AuthDto, @Res() res, @Req() req) {
-    return this.authService.signupCusmtomer(dto );
-}
-
-  @Post('signup/mechanic')
-   @ApiOperation({ summary: 'Sign up as a mechanic' })
-  @ApiResponse({ status: 201, description: 'mechanic created' })
-  signupMechanic(@Body(ValidationPipe) dto: AuthDto, @Res() res, @Req() req){
-    return this.authService.signupMechanic(dto);
+  async signupCustomer(@Body(ValidationPipe) dto: AuthDto) {
+    return this.authService.signup(dto, Role.CUSTOMER, 'ACTIVE');
   }
 
-  @Get('signout')
-    @ApiOperation({ summary: 'Sign out of the application' })
-  @ApiResponse({ status: 200, description: 'Signed out successfully' })
-  signout( @Res() res, @Req() req){
-    return this.authService.signout(req, res);
+  @Post('signup/mechanic')
+  @ApiOperation({ summary: 'Sign up as a mechanic (pending approval)' })
+  @ApiResponse({ status: 201, description: 'Mechanic created' })
+  async signupMechanic(@Body(ValidationPipe) dto: AuthDto) {
+    return this.authService.signup(dto, Role.MECHANIC, 'PENDING');
   }
 
   @Post('signin')
-  @ApiOperation({ summary: 'Signin to the application' })
-  @ApiResponse({ status: 200, description: 'signedIn' })
-  signin(@Body(ValidationPipe) dto: AuthDto, @Res() res, @Req() req) {
-  return this.authService.signin(dto, req, res);
+  @ApiOperation({ summary: 'Login and get JWT token' })
+  @ApiResponse({ status: 200, description: 'Login successful' })
+  async signin(@Body(ValidationPipe) dto: AuthDto) {
+    return this.authService.signin(dto);
+  }
+
+  // Example: Only admins can create other admins
+  @Post('signup/admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Sign up an admin (admin only)' })
+  async signupAdmin(@Body(ValidationPipe) dto: AuthDto) {
+    return this.authService.signup(dto, Role.ADMIN, 'ACTIVE');
+  }
 }
-
-
-
-
-}
-

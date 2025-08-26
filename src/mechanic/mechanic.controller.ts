@@ -1,180 +1,110 @@
+/* eslint-disable prettier/prettier */
+ 
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+ 
+/* eslint-disable prettier/prettier */
 import {
   Controller,
   Get,
-  Put,
+  Patch,
   Post,
+  Delete,
   Body,
   UseGuards,
-  UseInterceptors,
   UploadedFile,
-  Request,
-  BadRequestException,
-  HttpCode,
-  HttpStatus,
+  UseInterceptors,
+  Req,
   Param,
-  Delete,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
-
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiConsumes,} from '@nestjs/swagger';
 import { MechanicService } from './mechanic.service';
-import { RolesGuard } from 'src/common/guard/roles.guards';
-import { JwtAuthGuard } from 'src/auth/jwt.guard';
-import { CreatemechanicService } from './dto/create-mechanic-service.dto';
-import { Express } from 'express';
-import { Role } from '@prisma/client';
-import { Roles } from 'src/common/decorators/roles.decorators';
-import { UpdateMechanicDto } from './dto/update.mechanic.dto';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiBearerAuth,
-  ApiBody,
-  ApiConsumes,
-  ApiResponse,
-} from '@nestjs/swagger';
 
-@ApiTags('Mechanic')  // this is used to group the endpoints in Swagger UI
-@ApiBearerAuth()  // this indicates that the endpoints require a JWT token for access
+import { CreateMechanicServiceDto } from './dto/create-mechanic-service.dto';
+import { UpdateServiceDto } from './dto/update-service.dto';
+import { ServiceResponseDto } from './dto/service-response.dto';
+
+
+import { JwtAuthGuard } from 'src/auth/jwt.guard';
+import { RolesGuard } from 'src/common/guard/roles.guards';
+import { Roles } from 'src/common/decorators/roles.decorators';
+import { Role } from '@prisma/client';
+import { UpdateMechanicDto } from './dto/update.mechanic.dto';
+import { MechanicProfileResponseDto } from './dto/mechanic-profile--response.dto';
+
+@ApiTags('Mechanic')
+@ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.MECHANIC)
 @Controller('mechanic')
 export class MechanicController {
   constructor(private readonly mechanicService: MechanicService) {}
 
-@ApiOperation({ summary: 'Get Mechanic Profile' })
-@ApiResponse({ status: 200, description: 'Returns the mechanic profile' })
-@Get('profile')
-  async getMechanicProfile(@Request() req: Request & { user: { id: string } }) {
-    const userId = req.user.id;
-    return this.mechanicService.getMechanicProfile(userId);
-  }    //// we have succefully fixed the put endpoint.
+  @Get('profile')
+  @ApiOperation({ summary: 'Get logged-in mechanic profile' })
+  @ApiResponse({ status: 200, type: MechanicProfileResponseDto })
+  async getProfile(@Req() req) {
+    return this.mechanicService.getMechanicProfile(req.user.id);
+  }
 
-@ApiOperation({ summary: 'Update Mechanic Profile' })
-@ApiResponse({ status: 200, description: 'Profile updated' })
-@Put('profile')
-  async updateMechanicProfile(
-    @Request() req: Request & { user: { id: string } },
-    @Body() dto: UpdateMechanicDto
-  ) {
-    const userId = req.user.id;
-    return this.mechanicService.updateMechanicProfile(dto, userId);
-  } 
+  @Patch('profile')
+  @ApiOperation({ summary: 'Update logged-in mechanic profile' })
+  @ApiResponse({ status: 200, type: MechanicProfileResponseDto })
+  async updateProfile(@Req() req, @Body() dto: UpdateMechanicDto) {
+    return this.mechanicService.updateMechanicProfile(req.user.id, dto);
+  }
 
-  @ApiOperation({ summary: 'Upload mechanic certification file' })
-@ApiConsumes('multipart/form-data')/// this tells swagger your endpoint is epecting a file upload
-@ApiBody({
-  schema: {
-    type: 'object',
-    properties: {
-      file: {
-        type: 'string',
-        format: 'binary',
-      },
-    },
-  },
-})
-@Post('upload-certification')
-  @UseInterceptors(
-    FileInterceptor('file', {
-      storage: diskStorage({
-        destination: './uploads/certifications',
-        filename: (req, file, cb) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, `${file.fieldname}-${uniqueSuffix}${extname(file.originalname)}`);
-        },
-      }),
-    }),
-  )
+  @Post('certification')
+  @ApiOperation({ summary: 'Upload certification' })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file'))
   async uploadCertification(
+    @Req() req,
     @UploadedFile() file: Express.Multer.File,
-    @Request() req,
   ) {
-    const userId = req.user.id;
-    return this.mechanicService.saveCertification(userId, file.filename);
+    return this.mechanicService.saveCertification(req.user.id, file.filename);
   }
 
+  @Post('profile-picture')
   @ApiOperation({ summary: 'Upload profile picture' })
-@ApiConsumes('multipart/form-data')
-@ApiBody({
-  schema: {
-    type: 'object',
-    properties: {
-      profilePicture: {
-        type: 'string',
-        format: 'binary',
-      },
-    },
-  },
-})
-@Post('profile/upload-picture')
-  @UseInterceptors(
-    FileInterceptor('profilePicture', {
-      limits: {
-        fileSize: 2 * 1024 * 1024,
-      },
-      fileFilter: (req, file, callback) => {
-        if (!file.originalname.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
-          return callback(
-            new BadRequestException('Only image files are allowed!'),
-            false,
-          );
-        }
-        callback(null, true);
-      },
-    }),
-  )
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file'))
   async uploadProfilePicture(
+    @Req() req,
     @UploadedFile() file: Express.Multer.File,
-    @Request() req,
   ) {
-    const userId = req.user.id;
-    return this.mechanicService.uploadProfilePicture(userId, file);
+    return this.mechanicService.uploadProfilePicture(req.user.id, file);
   }
 
-@ApiOperation({ summary: 'Create mechanic service' })  // groups endpoint in swagger ui
-@ApiResponse({ status: 201, description: 'Service created successfully' })  // gives a response to the client
-@ApiResponse({ status: 400, description: 'Bad Request' })  // handles bad request
-@Post('service')
-  @Roles(Role.MECHANIC)
-  @HttpCode(HttpStatus.CREATED)
-  async createMechanicService(
-    @Request() req,
-    @Body() dto: CreatemechanicService,
-  ) {
-    const userId = req.user.id;
-    return this.mechanicService.createService(dto, userId);
+  @Post('service')
+  @ApiOperation({ summary: 'Create a service for logged-in mechanic' })
+  @ApiResponse({ status: 201, type: ServiceResponseDto })
+  async createService(@Req() req, @Body() dto: CreateMechanicServiceDto) {
+    return this.mechanicService.createService(req.user.id, dto);
   }
 
-@ApiOperation({ summary: 'Get all mechanic services' })
-@ApiResponse({ status: 200, description: 'List of services' })
-@Get('service')
-  async getAllMechanicServices(@Request() req) {
-    const userId = req.user.id;
-    return this.mechanicService.getallMechanicservice(userId);
+  @Get('services')
+  @ApiOperation({ summary: 'Get all services for logged-in mechanic' })
+  @ApiResponse({ status: 200, type: [ServiceResponseDto] })
+  async getServices(@Req() req) {
+    return this.mechanicService.getAllMechanicServices(req.user.id);
   }
 
-  @ApiOperation({ summary: 'Update a mechanic service' })
-@ApiResponse({ status: 200, description: 'Service updated' })
-@Put('service/:id')
+  @Patch('service/:id')
+  @ApiOperation({ summary: 'Update a service for logged-in mechanic' })
+  @ApiResponse({ status: 200, type: ServiceResponseDto })
   async updateService(
-    @Request() req,
-    @Body() dto: CreatemechanicService,
-    @Param('id') serviceId: string,
+    @Req() req,
+    @Body() dto: UpdateServiceDto,
+    @Param('id') id: string,
   ) {
-    const mechanicId = req.user.id;
-    return this.mechanicService.UpdateMechanicService(dto, serviceId, mechanicId);
+    return this.mechanicService.updateMechanicService(id, req.user.id, dto);
   }
 
-  @ApiOperation({ summary: 'Delete a mechanic service' })
-@ApiResponse({ status: 200, description: 'Service deleted' })
-@Delete('service/:id')
-
-  async deleteService(
-    @Request() req,
-    @Param('id') serviceId: string,
-  ) {
-    const mechanicId = req.user.id;
-    return this.mechanicService.DeleteMechanicService(serviceId, mechanicId);
+  @Delete('service/:id')
+  @ApiOperation({ summary: 'Delete a service for logged-in mechanic' })
+  async deleteService(@Req() req, @Param('id') id: string) {
+    return this.mechanicService.deleteMechanicService(id, req.user.id);
   }
 }

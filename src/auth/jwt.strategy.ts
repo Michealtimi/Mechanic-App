@@ -4,11 +4,6 @@ import { Strategy, ExtractJwt } from 'passport-jwt';
 import { Request } from 'express';
 import { jwtSecret } from 'src/utils/constant';
 
-
-
-
-
-
 const cookieExtractor = (req: Request): string | null => {
   if (req.cookies && 'token' in req.cookies) {
     return req.cookies.token;
@@ -20,9 +15,7 @@ const cookieExtractor = (req: Request): string | null => {
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor() {
     super({
-      jwtFromRequest: ExtractJwt.fromExtractors([
-        JwtStrategy.extractJWT,
-      ]),
+      jwtFromRequest: ExtractJwt.fromExtractors([JwtStrategy.extractJWT]),
       secretOrKey: jwtSecret ?? 'your_default_jwt_secret',
     });
   }
@@ -39,8 +32,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 }
 
-
-
 // const cookieExtractor = (req: Request): string | null => {
 //   if (req.cookies && 'token' in req.cookies) {
 //     return req.cookies.token;
@@ -48,18 +39,17 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 //   return null;
 // };
 
-
 // @Injectable()
 // export class JwtStrategy extends PassportStrategy(Strategy) {
 //   constructor() {
 //     super({
 //       jwtFromRequest: ExtractJwt.fromExtractors([
 //         JwtStrategy.extractJWT, // Custom cookie extractor
-     
+
 //       ]),
 //       secretOrKey: jwtSecret,
 //     });
-//   } 
+//   }
 
 //    private static extractJWT(req: Request): string | null {
 //     if (req.cookies && 'token' in req.cookies) {
@@ -71,5 +61,3 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 //     return payload; // This gets attached to request.user
 //   }
 // }
-
- 
