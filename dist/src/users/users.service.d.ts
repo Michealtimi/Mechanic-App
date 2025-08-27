@@ -26,11 +26,11 @@ export declare class UsersService {
         success: boolean;
         message: string;
         data: {
-            users: UserResponseDto[];
+            users: UserResponseDto;
             pagination: {
                 page: number;
                 limit: number;
-                total: number;
+                total: any;
                 totalPages: number;
             };
         };

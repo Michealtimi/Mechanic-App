@@ -13,7 +13,7 @@ export declare class BookingService {
     getAllBookings(userId: string): Promise<{
         success: boolean;
         message: string;
-        data: BookingResponseDto[];
+        data: BookingResponseDto;
     }>;
     getBookingById(id: string, userId: string): Promise<{
         success: boolean;

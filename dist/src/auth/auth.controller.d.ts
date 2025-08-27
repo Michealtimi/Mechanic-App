@@ -1,27 +1,35 @@
 import { AuthService } from './auth.service';
-import { AuthDto } from './dto/auth.dto';
+import { RegisterUserDto, LoginDto, ForgotPasswordDto, ResetPasswordDto, RefreshTokenDto } from './dto/auth.dto';
 export declare class AuthController {
     private readonly authService;
     constructor(authService: AuthService);
-    signupCustomer(dto: AuthDto): Promise<{
+    register(dto: RegisterUserDto): Promise<{
         success: boolean;
         message: string;
         data: import("../users/dto/user-response.dto").UserResponseDto;
     }>;
-    signupMechanic(dto: AuthDto): Promise<{
+    login(dto: LoginDto): Promise<{
+        user: import("../users/dto/user-response.dto").UserResponseDto;
+        accessToken: string;
+        refreshToken: string;
         success: boolean;
         message: string;
-        data: import("../users/dto/user-response.dto").UserResponseDto;
     }>;
-    signin(dto: AuthDto): Promise<{
-        success: boolean;
+    logout(dto: RefreshTokenDto): Promise<{
+        message: string;
+    }>;
+    refresh(dto: RefreshTokenDto): Promise<{
+        accessToken: string;
+        refreshToken: string;
+    }>;
+    forgotPassword(dto: ForgotPasswordDto): Promise<{
+        message: string;
+        token?: undefined;
+    } | {
         message: string;
         token: string;
-        user: import("../users/dto/user-response.dto").UserResponseDto;
     }>;
-    signupAdmin(dto: AuthDto): Promise<{
-        success: boolean;
+    resetPassword(dto: ResetPasswordDto): Promise<{
         message: string;
-        data: import("../users/dto/user-response.dto").UserResponseDto;
     }>;
 }

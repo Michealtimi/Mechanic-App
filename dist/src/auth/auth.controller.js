@@ -14,69 +14,107 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthController = void 0;
 const common_1 = require("@nestjs/common");
+const swagger_1 = require("@nestjs/swagger");
 const auth_service_1 = require("./auth.service");
 const auth_dto_1 = require("./dto/auth.dto");
-const swagger_1 = require("@nestjs/swagger");
 const jwt_guard_1 = require("./jwt.guard");
 const roles_guards_1 = require("../common/guard/roles.guards");
-const roles_decorators_1 = require("../common/decorators/roles.decorators");
-const client_1 = require("@prisma/client");
 let AuthController = class AuthController {
     authService;
     constructor(authService) {
         this.authService = authService;
     }
-    async signupCustomer(dto) {
-        return this.authService.signup(dto, client_1.Role.CUSTOMER, 'ACTIVE');
+    async register(dto) {
+        return this.authService.signup(dto, dto.role, 'ACTIVE');
     }
-    async signupMechanic(dto) {
-        return this.authService.signup(dto, client_1.Role.MECHANIC, 'PENDING');
-    }
-    async signin(dto) {
+    async login(dto) {
         return this.authService.signin(dto);
     }
-    async signupAdmin(dto) {
-        return this.authService.signup(dto, client_1.Role.ADMIN, 'ACTIVE');
+    async logout(dto) {
+        return this.authService.logout(dto.refreshToken);
+    }
+    async refresh(dto) {
+        return this.authService.refreshToken(dto.refreshToken);
+    }
+    async forgotPassword(dto) {
+        return this.authService.forgotPassword(dto.email);
+    }
+    async resetPassword(dto) {
+        return this.authService.resetPassword(dto.token, dto.newPassword);
     }
 };
 exports.AuthController = AuthController;
 __decorate([
-    (0, common_1.Post)('signup/customer'),
-    (0, swagger_1.ApiOperation)({ summary: 'Sign up as a customer' }),
-    (0, swagger_1.ApiResponse)({ status: 201, description: 'Customer created' }),
-    __param(0, (0, common_1.Body)(common_1.ValidationPipe)),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [auth_dto_1.AuthDto]),
-    __metadata("design:returntype", Promise)
-], AuthController.prototype, "signupCustomer", null);
-__decorate([
-    (0, common_1.Post)('signup/mechanic'),
-    (0, swagger_1.ApiOperation)({ summary: 'Sign up as a mechanic (pending approval)' }),
-    (0, swagger_1.ApiResponse)({ status: 201, description: 'Mechanic created' }),
-    __param(0, (0, common_1.Body)(common_1.ValidationPipe)),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [auth_dto_1.AuthDto]),
-    __metadata("design:returntype", Promise)
-], AuthController.prototype, "signupMechanic", null);
-__decorate([
-    (0, common_1.Post)('signin'),
-    (0, swagger_1.ApiOperation)({ summary: 'Login and get JWT token' }),
-    (0, swagger_1.ApiResponse)({ status: 200, description: 'Login successful' }),
-    __param(0, (0, common_1.Body)(common_1.ValidationPipe)),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [auth_dto_1.AuthDto]),
-    __metadata("design:returntype", Promise)
-], AuthController.prototype, "signin", null);
-__decorate([
-    (0, common_1.Post)('signup/admin'),
+    (0, common_1.Post)('register'),
     (0, common_1.UseGuards)(jwt_guard_1.JwtAuthGuard, roles_guards_1.RolesGuard),
-    (0, roles_decorators_1.Roles)(client_1.Role.ADMIN),
-    (0, swagger_1.ApiOperation)({ summary: 'Sign up an admin (admin only)' }),
-    __param(0, (0, common_1.Body)(common_1.ValidationPipe)),
+    Roles('SUPER_ADMIN'),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Register a new user (SUPER_ADMIN only)' }),
+    (0, swagger_1.ApiBody)({ type: auth_dto_1.RegisterUserDto }),
+    (0, swagger_1.ApiResponse)({ status: 201, description: 'User registered successfully' }),
+    (0, swagger_1.ApiResponse)({ status: 403, description: 'Forbidden: not SUPER_ADMIN' }),
+    __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [auth_dto_1.AuthDto]),
+    __metadata("design:paramtypes", [auth_dto_1.RegisterUserDto]),
     __metadata("design:returntype", Promise)
-], AuthController.prototype, "signupAdmin", null);
+], AuthController.prototype, "register", null);
+__decorate([
+    (0, common_1.Post)('login'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({ summary: 'Login with email and password' }),
+    (0, swagger_1.ApiBody)({ type: auth_dto_1.LoginDto }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Login successful' }),
+    (0, swagger_1.ApiResponse)({ status: 401, description: 'Invalid credentials' }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [auth_dto_1.LoginDto]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "login", null);
+__decorate([
+    (0, common_1.Post)('logout'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({ summary: 'Logout user by invalidating refresh token' }),
+    (0, swagger_1.ApiBody)({ type: auth_dto_1.RefreshTokenDto }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Logged out successfully' }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [auth_dto_1.RefreshTokenDto]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "logout", null);
+__decorate([
+    (0, common_1.Post)('refresh'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({ summary: 'Get a new access token using refresh token' }),
+    (0, swagger_1.ApiBody)({ type: auth_dto_1.RefreshTokenDto }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'New access token issued' }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [auth_dto_1.RefreshTokenDto]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "refresh", null);
+__decorate([
+    (0, common_1.Post)('forgot-password'),
+    (0, swagger_1.ApiOperation)({ summary: 'Request password reset link' }),
+    (0, swagger_1.ApiBody)({ type: auth_dto_1.ForgotPasswordDto }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: 'Reset link sent (if account exists)',
+    }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [auth_dto_1.ForgotPasswordDto]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "forgotPassword", null);
+__decorate([
+    (0, common_1.Post)('reset-password'),
+    (0, swagger_1.ApiOperation)({ summary: 'Reset password using token' }),
+    (0, swagger_1.ApiBody)({ type: auth_dto_1.ResetPasswordDto }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Password reset successful' }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [auth_dto_1.ResetPasswordDto]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "resetPassword", null);
 exports.AuthController = AuthController = __decorate([
     (0, swagger_1.ApiTags)('Auth'),
     (0, common_1.Controller)('auth'),

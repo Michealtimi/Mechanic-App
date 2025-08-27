@@ -1,40 +1,69 @@
-/* eslint-disable prettier/prettier */
-// import {
-//   IsEmail,
-//   IsEnum,
-//   IsNotEmpty,
-//   IsOptional,
-//   IsString,
-//   Length,
-// } from 'class-validator';
-
-// // Define Role enum locally if not available from Prisma
-// export enum Role {
-//   USER = 'USER',
-//   ADMIN = 'ADMIN',
-//   MECHANIC = 'MECHANIC',
-// }
-
-// export class AuthDto {
-//   @IsEmail()
-//   @IsNotEmpty()
-//   email: string;
-
-//   @IsNotEmpty()
-//   @IsString()
-//   @Length(3, 20, { message: 'Password must be between 3 and 20 characters' })
-//   password: string;
-// }
-
-
-// src/auth/dto/auth.dto.ts
-import { IsEmail, IsNotEmpty, MinLength } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
 
 export class AuthDto {
+  @ApiProperty({ example: 'user@example.com' })
   @IsEmail()
   email: string;
 
-  @IsNotEmpty()
+  @ApiProperty({ example: 'Password123!' })
+  @IsString()
   @MinLength(6)
   password: string;
+}
+
+export class RegisterUserDto {
+  @ApiProperty({ example: 'john.doe@example.com' })
+  @IsEmail()
+  email: string;
+
+  @ApiProperty({ example: 'John' })
+  @IsString()
+  firstName: string;
+
+  @ApiProperty({ example: 'Doe' })
+  @IsString()
+  lastName: string;
+
+  @ApiProperty({ example: 'Password123!' })
+  @IsString()
+  @MinLength(6)
+  password: string;
+
+  @ApiProperty({ example: 'ADMIN', description: 'Role of the user' })
+  @IsString()
+  role: string;
+}
+
+export class LoginDto {
+  @ApiProperty({ example: 'john.doe@example.com' })
+  @IsEmail()
+  email: string;
+
+  @ApiProperty({ example: 'Password123!' })
+  @IsString()
+  password: string;
+}
+
+export class ForgotPasswordDto {
+  @ApiProperty({ example: 'john.doe@example.com' })
+  @IsEmail()
+  email: string;
+}
+
+export class ResetPasswordDto {
+  @ApiProperty({ example: 'eyJhbGciOiJIUzI1...' })
+  @IsString()
+  token: string;
+
+  @ApiProperty({ example: 'NewPassword123!' })
+  @IsString()
+  @MinLength(6)
+  newPassword: string;
+}
+
+export class RefreshTokenDto {
+  @ApiProperty({ example: 'eyJhbGciOiJIUzI1...' })
+  @IsNotEmpty()
+  refreshToken: string;
 }
