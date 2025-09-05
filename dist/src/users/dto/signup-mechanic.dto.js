@@ -12,11 +12,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SignupMechanicDto = void 0;
 const class_validator_1 = require("class-validator");
 const swagger_1 = require("@nestjs/swagger");
+const client_1 = require("@prisma/client");
 class SignupMechanicDto {
     email;
     password;
     shopName;
     skills;
+    role = client_1.Role.MECHANIC;
 }
 exports.SignupMechanicDto = SignupMechanicDto;
 __decorate([

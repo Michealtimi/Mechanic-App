@@ -1,5 +1,6 @@
 export declare class UserResponseDto {
     id: string;
+    fullName: string;
     email: string;
     role: string;
     shopName?: string;

@@ -14,6 +14,7 @@ const class_transformer_1 = require("class-transformer");
 const swagger_1 = require("@nestjs/swagger");
 class UserResponseDto {
     id;
+    fullName;
     email;
     role;
     shopName;
@@ -28,6 +29,11 @@ __decorate([
     (0, class_transformer_1.Expose)(),
     __metadata("design:type", String)
 ], UserResponseDto.prototype, "id", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    (0, class_transformer_1.Expose)(),
+    __metadata("design:type", String)
+], UserResponseDto.prototype, "fullName", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)(),
     (0, class_transformer_1.Expose)(),

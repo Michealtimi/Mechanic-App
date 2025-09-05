@@ -3,6 +3,7 @@ import { SignupCustomerDto } from './dto/signup-customer.dto';
 import { SignupMechanicDto } from './dto/signup-mechanic.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { Role } from '@prisma/client';
 export declare class UsersController {
     private readonly usersService;
     constructor(usersService: UsersService);
@@ -16,35 +17,35 @@ export declare class UsersController {
         message: string;
         data: import("./dto/user-response.dto").UserResponseDto;
     }>;
-    createUser(dto: CreateUserDto): Promise<{
+    createUser(dto: CreateUserDto, callerId: string, callerRole: Role): Promise<{
         success: boolean;
         message: string;
         data: import("./dto/user-response.dto").UserResponseDto;
     }>;
-    getAllUsers(page?: number, limit?: number): Promise<{
+    getAllUsers(page: number | undefined, limit: number | undefined, callerRole: Role): Promise<{
         success: boolean;
         message: string;
         data: {
-            users: import("./dto/user-response.dto").UserResponseDto;
+            users: import("./dto/user-response.dto").UserResponseDto[];
             pagination: {
                 page: number;
                 limit: number;
-                total: any;
+                total: number;
                 totalPages: number;
             };
         };
     }>;
-    getUserById(id: string): Promise<{
+    getUserById(id: string, callerId: string, callerRole: Role): Promise<{
         success: boolean;
         message: string;
         data: import("./dto/user-response.dto").UserResponseDto;
     }>;
-    updateUser(id: string, dto: UpdateUserDto): Promise<{
+    updateUser(id: string, dto: UpdateUserDto, callerId: string, callerRole: Role): Promise<{
         success: boolean;
         message: string;
         data: import("./dto/user-response.dto").UserResponseDto;
     }>;
-    deleteUser(id: string): Promise<{
+    deleteUser(id: string, callerId: string, callerRole: Role): Promise<{
         success: boolean;
         message: string;
         data: import("./dto/user-response.dto").UserResponseDto;

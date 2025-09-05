@@ -8,6 +8,10 @@ export class UserResponseDto {
 
   @ApiProperty()
   @Expose()
+  fullName: string;
+
+  @ApiProperty()
+  @Expose()
   email: string;
 
   @ApiProperty()

@@ -1,12 +1,17 @@
 import { PrismaService } from 'prisma/prisma.service';
 import { SignupMechanicDto } from './dto/signup-mechanic.dto';
 import { CreateUserDto } from './dto/create-user.dto';
+import { Role } from '@prisma/client';
 import { SignupCustomerDto } from './dto/signup-customer.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { MailService } from 'src/utils/mail.service';
 export declare class UsersService {
     private readonly prisma;
-    constructor(prisma: PrismaService);
+    private readonly mailService;
+    private readonly logger;
+    constructor(prisma: PrismaService, mailService: MailService);
+    private createAndLogUser;
     signupCustomer(dto: SignupCustomerDto): Promise<{
         success: boolean;
         message: string;
@@ -17,20 +22,23 @@ export declare class UsersService {
         message: string;
         data: UserResponseDto;
     }>;
-    createUser(dto: CreateUserDto): Promise<{
+    createUser(dto: CreateUserDto, callerId: string, callerRole: Role): Promise<{
         success: boolean;
         message: string;
         data: UserResponseDto;
     }>;
-    getAllUsers(page?: number, limit?: number): Promise<{
+    getAllUsers(page?: number, limit?: number, filters?: {
+        role?: Role;
+        q?: string;
+    }): Promise<{
         success: boolean;
         message: string;
         data: {
-            users: UserResponseDto;
+            users: UserResponseDto[];
             pagination: {
                 page: number;
                 limit: number;
-                total: any;
+                total: number;
                 totalPages: number;
             };
         };
@@ -40,12 +48,12 @@ export declare class UsersService {
         message: string;
         data: UserResponseDto;
     }>;
-    updateUser(id: string, dto: UpdateUserDto): Promise<{
+    updateUser(id: string, dto: UpdateUserDto, callerId: string, callerRole: Role): Promise<{
         success: boolean;
         message: string;
         data: UserResponseDto;
     }>;
-    deleteUser(id: string): Promise<{
+    deleteUser(id: string, callerId: string, callerRole: Role): Promise<{
         success: boolean;
         message: string;
         data: UserResponseDto;

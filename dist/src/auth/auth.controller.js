@@ -19,16 +19,18 @@ const auth_service_1 = require("./auth.service");
 const auth_dto_1 = require("./dto/auth.dto");
 const jwt_guard_1 = require("./jwt.guard");
 const roles_guards_1 = require("../common/guard/roles.guards");
+const roles_decorators_1 = require("../common/decorators/roles.decorators");
+const client_1 = require("@prisma/client");
 let AuthController = class AuthController {
     authService;
     constructor(authService) {
         this.authService = authService;
     }
     async register(dto) {
-        return this.authService.signup(dto, dto.role, 'ACTIVE');
+        return this.authService.register(dto);
     }
     async login(dto) {
-        return this.authService.signin(dto);
+        return this.authService.login(dto);
     }
     async logout(dto) {
         return this.authService.logout(dto.refreshToken);
@@ -37,17 +39,17 @@ let AuthController = class AuthController {
         return this.authService.refreshToken(dto.refreshToken);
     }
     async forgotPassword(dto) {
-        return this.authService.forgotPassword(dto.email);
+        return this.authService.forgotPassword(dto);
     }
     async resetPassword(dto) {
-        return this.authService.resetPassword(dto.token, dto.newPassword);
+        return this.authService.resetPassword(dto);
     }
 };
 exports.AuthController = AuthController;
 __decorate([
     (0, common_1.Post)('register'),
     (0, common_1.UseGuards)(jwt_guard_1.JwtAuthGuard, roles_guards_1.RolesGuard),
-    Roles('SUPER_ADMIN'),
+    (0, roles_decorators_1.Roles)(client_1.Role.SUPERADMIN),
     (0, swagger_1.ApiBearerAuth)(),
     (0, swagger_1.ApiOperation)({ summary: 'Register a new user (SUPER_ADMIN only)' }),
     (0, swagger_1.ApiBody)({ type: auth_dto_1.RegisterUserDto }),

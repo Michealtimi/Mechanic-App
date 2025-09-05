@@ -20,7 +20,7 @@ export declare class MechanicController {
     uploadCertification(req: any, file: Express.Multer.File): Promise<{
         success: boolean;
         message: string;
-        data: any;
+        data: string[];
     }>;
     uploadProfilePicture(req: any, file: Express.Multer.File): Promise<{
         success: boolean;
@@ -35,7 +35,7 @@ export declare class MechanicController {
     getServices(req: any): Promise<{
         success: boolean;
         message: string;
-        data: ServiceResponseDto;
+        data: ServiceResponseDto[];
     }>;
     updateService(req: any, dto: UpdateServiceDto, id: string): Promise<{
         success: boolean;

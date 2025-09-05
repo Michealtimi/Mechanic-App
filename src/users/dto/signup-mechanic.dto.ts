@@ -1,6 +1,7 @@
 /* eslint-disable prettier/prettier */
 import { IsEmail, IsString, MinLength, IsOptional, IsArray } from 'class-validator';
 import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
+import { Role } from '@prisma/client'; // 💡 Import the Role enum
 
 export class SignupMechanicDto {
   @ApiProperty({ example: 'mike.mechanic@example.com' })
@@ -21,4 +22,6 @@ export class SignupMechanicDto {
   @IsOptional()
   @IsArray()
   skills?: string[];
+
+  readonly role: Role = Role.MECHANIC;
 }

@@ -13,10 +13,10 @@ const passport_1 = require("@nestjs/passport");
 const core_1 = require("@nestjs/core");
 const auth_service_1 = require("./auth.service");
 const auth_controller_1 = require("./auth.controller");
-const prisma_service_1 = require("../prisma/prisma.service");
 const mail_service_1 = require("../utils/mail.service");
-const jwt_strategy_1 = require("./strategies/jwt.strategy");
 const roles_guards_1 = require("../common/guard/roles.guards");
+const jwt_strategy_1 = require("./jwt.strategy");
+const prisma_service_1 = require("../../prisma/prisma.service");
 let AuthModule = class AuthModule {
 };
 exports.AuthModule = AuthModule;

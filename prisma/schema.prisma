@@ -7,15 +7,23 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Skill {
+  id          String    @id @default(uuid())
+  name        String    @unique // The name of the skill (e.g., 'Brake Repair')
+  users       User[]    // This creates the relationship back to the User model
+}
+
 model User {
   id                String            @id @default(uuid())
   email             String            @unique
   password          String
+  firstName     String?
+  lastName      String?
   role              Role              @default(CUSTOMER)
-  status            String            @default("PENDING")
+  status            Status            @default(PENDING) // now an enum
   shopName          String?
   location          String?
-  skills            String[]
+  skills            Skill[] // array of strings
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
   experienceYears   Int?
@@ -26,7 +34,11 @@ model User {
   MechanicBookings  Booking[]         @relation("MechanicBookings")
   mechanicServices  MechanicService[]
   deletedAt         DateTime?
+  lastLogin         DateTime? // added — updated on login
+  refreshTokens     RefreshToken[] // relation to stored refresh tokens
+  auditLogs         AuditLog[] @relation("UserAuditLogs") 
 }
+
 
 model MechanicService {
   id            String    @id @default(uuid())
@@ -56,14 +68,48 @@ model Booking {
   service     MechanicService @relation(fields: [serviceId], references: [id])
 }
 
+
+
+/**
+ * Stored refresh tokens so you can revoke / validate refresh tokens server-side.
+ * Note: your code hashed the refresh token before storing; Prisma stores the hashed string.
+ */
+model RefreshToken {
+  id        String   @id @default(uuid()) // jti
+  token     String // hashed refresh token
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  revoked   Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  action     String
+  resource   String
+  resourceId String?
+  changes    Json?
+  createdAt  DateTime @default(now())
+
+  user User? @relation("UserAuditLogs", fields: [userId], references: [id])
+}
+
 enum Role {
+  SUPERADMIN // newly added so you can seed a super admin
   ADMIN
   MECHANIC
   CUSTOMER
 }
 
+/**
+ * Status enum: includes ACTIVE so it matches usage in your signup/signin flows.
+ * I kept PENDING (default), plus ACTIVE, APPROVED, REJECTED — feel free to prune later.
+ */
 enum Status {
   PENDING
+  ACTIVE
   APPROVED
   REJECTED
 }

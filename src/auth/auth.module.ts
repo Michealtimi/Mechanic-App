@@ -6,11 +6,11 @@ import { APP_GUARD } from '@nestjs/core';
 
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
-import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../utils/mail.service';
 
-import { JwtStrategy } from './strategies/jwt.strategy';
 import { RolesGuard } from 'src/common/guard/roles.guards';
+import { JwtStrategy } from './jwt.strategy';
+import { PrismaService } from 'prisma/prisma.service';
 
 @Module({
   imports: [

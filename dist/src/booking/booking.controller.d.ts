@@ -13,7 +13,7 @@ export declare class BookingController {
     getBookings(req: any): Promise<{
         success: boolean;
         message: string;
-        data: BookingResponseDto;
+        data: BookingResponseDto[];
     }>;
     getBookingById(id: string, req: any): Promise<{
         success: boolean;
