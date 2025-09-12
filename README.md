@@ -1,114 +1,183 @@
+ Mechanic SaaS Platform
 
-🚗 Mechanic Service Platform API
+A service booking platform for mechanics and customers.
+Customers can book mechanics, pay securely via escrow (Paystack/Flutterwave), and mechanics can manage services, certifications, and payouts.
 
-A backend API built with Node.js, NestJS, and PostgreSQL for managing mechanic services, customer requests, and payment integration.
-This project demonstrates scalable backend architecture, authentication, and real-world business logic.
-
-
----
-
-✨ Features
-
-🔐 Authentication & Authorization using JWT + bcrypt
-
-👨‍🔧 Mechanic Management: Add, update, and assign mechanics to service requests
-
-📅 Service Requests: Customers can book and track mechanic services
-
-💳 Payment Integration: Paystack integration (in progress) for secure transactions
-
-📊 API Documentation with Swagger
-
-🛠 Database: PostgreSQL + Prisma ORM
-
+Built with NestJS + Prisma + PostgreSQL and designed as a scalable SaaS solution.
 
 
 ---
 
-🛠 Tech Stack
+🚀 Features
 
-Node.js + NestJS – Backend framework
+👨‍🔧 Mechanic Features
 
-PostgreSQL + Prisma ORM – Database & ORM
+Profile setup (bio, skills, certifications, profile picture).
 
-Swagger – API documentation
+Service management (add, update, delete services).
 
-JWT + bcrypt – Security & authentication
+View bookings (pending, confirmed, completed).
 
-Render – Deployment
+Wallet overview (earnings, pending payouts).
+
+
+🚗 Customer Features
+
+Browse mechanics (search by skill, service, location).
+
+Book a mechanic (choose service & schedule time).
+
+Pay securely via Paystack/Flutterwave.
+
+Track booking status (Pending → Confirmed → Completed).
+
+
+💳 Payment & Escrow
+
+Secure payments via Paystack/Flutterwave.
+
+Escrow system (funds held until service is completed).
+
+Automatic payout to mechanics.
+
+Platform commission taken per transaction.
+
+
+📊 Admin Features (optional / premium)
+
+Manage mechanics and customers.
+
+Monitor bookings & payments.
+
+Revenue reporting dashboard.
 
 
 
 ---
 
-🚀 Getting Started
+🏗️ Project Structure
 
-1️⃣ Clone the repo
+mechanic-app/
+│── src/
+│   ├── auth/             # Authentication (JWT, Guards, Roles)
+│   ├── mechanic/         # Mechanic profile & service management
+│   ├── booking/          # Booking flow (create, update, track)
+│   ├── payment/          # Payment & escrow integration
+│   ├── common/           # Shared utilities, guards, interceptors
+│   └── prisma/           # Prisma ORM (database models & migrations)
+│
+│── prisma/
+│   └── schema.prisma     # Database schema
+│
+│── package.json
+│── README.md
+│── tsconfig.json
 
-git clone https://github.com/Michealtimi/mechanic-api.git
-cd mechanic-api
 
-2️⃣ Install dependencies
+---
+
+⚙️ Tech Stack
+
+Backend: NestJS (modular & scalable framework).
+
+Database: PostgreSQL + Prisma ORM.
+
+Authentication: JWT (with Role-based Guards).
+
+Payments: Paystack + Flutterwave (escrow-based).
+
+API Docs: Swagger (auto-generated endpoints).
+
+
+
+---
+
+📌 Installation
+
+1. Clone repo:
+
+
+
+git clone https://github.com/your-username/mechanic-app.git
+cd mechanic-app
+
+2. Install dependencies:
+
+
 
 npm install
 
-3️⃣ Set up environment variables
+3. Setup environment variables:
+Create .env file:
 
-Create a .env file in the root:
 
-DATABASE_URL=postgresql://username:password@localhost:5432/mechanicdb
-JWT_SECRET=your_secret_key
-PAYSTACK_SECRET=your_paystack_secret
 
-4️⃣ Run migrations
+DATABASE_URL="postgresql://user:password@localhost:5432/mechanicdb"
+JWT_SECRET="your-secret-key"
+PAYSTACK_SECRET_KEY="your-paystack-key"
+FLUTTERWAVE_SECRET_KEY="your-flutterwave-key"
 
-npx prisma migrate dev --name init
+4. Run database migrations:
 
-5️⃣ Start the server
+
+
+npx prisma migrate dev
+
+5. Start the server:
+
+
 
 npm run start:dev
 
-Server runs at http://localhost:3000
 
-Swagger docs: http://localhost:3000/api
+---
+
+📖 API Documentation
+
+Once the app is running, open Swagger UI at:
+👉 http://localhost:3000/api
+
+You’ll see interactive docs for all endpoints (Auth, Mechanic, Booking, Payment).
 
 
 ---
 
-📌 API Endpoints
+✅ Roadmap
 
-Method	Endpoint	Description
+[x] Mechanic profile + services.
 
-POST	/auth/register	Register new user
-POST	/auth/login	Login & get JWT
-POST	/mechanics	Add mechanic (admin)
-GET	/mechanics	List mechanics
-POST	/requests	Create service request
-GET	/requests/:id	Track service request
+[x] Booking system.
 
+[x] Payment & escrow integration.
 
+[ ] Admin dashboard.
 
----
+[ ] Notifications (SMS/Email).
 
-🏗 Future Improvements
-
-✅ Add role-based access (Admin, Mechanic, Customer)
-
-✅ Improve error handling
-
-🚧 Integrate full Paystack payment workflow
-
-🚧 Add email notifications
+[ ] Mobile app (React Native / Flutter).
 
 
 
 ---
 
-👨‍💻 Author
+🤝 Contribution
 
-Agunbiade Micheal Timileyin
+Want to improve the platform?
 
-🌍 GitHub
+1. Fork the repo.
 
-📧 michealagunbiade1@gmail.com
+
+2. Create a feature branch.
+
+
+3. Submit a PR.
+
+
+
+
+---
+
+📜 License
+
+MIT License. Free to use and adapt.
 
