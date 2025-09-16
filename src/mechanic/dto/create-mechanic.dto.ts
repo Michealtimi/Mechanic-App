@@ -10,6 +10,16 @@ export class CreateMechanicDto {
   @IsString()
   email: string;
 
+  @ApiProperty({ example: 'Segun', description: 'FirstName of the mechanic' })
+  @IsNotEmpty()
+  @IsString()
+  firstName: string;
+
+  @ApiProperty({ example: 'Farmer', description: 'LastName of the mechanic' })
+  @IsNotEmpty()
+  @IsString()
+  lastName: string;
+
   @ApiProperty({ example: 'securePassword123', description: 'Password for the mechanic account' })
   @IsNotEmpty()
   @IsString()

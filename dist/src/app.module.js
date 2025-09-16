@@ -12,12 +12,15 @@ const auth_module_1 = require("./auth/auth.module");
 const users_module_1 = require("./users/users.module");
 const mechanic_module_1 = require("./mechanic/mechanic.module");
 const booking_module_1 = require("./booking/booking.module");
+const mail_service_1 = require("./utils/mail.service");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [auth_module_1.AuthModule, users_module_1.UsersModule, mechanic_module_1.MechanicModule, booking_module_1.BookingModule],
+        providers: [mail_service_1.MailService],
+        exports: [mail_service_1.MailService],
     })
 ], AppModule);
 //# sourceMappingURL=app.module.js.map

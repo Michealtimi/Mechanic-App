@@ -1,48 +1,113 @@
 import { MechanicService } from './mechanic.service';
 import { CreateMechanicServiceDto } from './dto/create-mechanic-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
-import { ServiceResponseDto } from './dto/service-response.dto';
 import { UpdateMechanicDto } from './dto/update.mechanic.dto';
-import { MechanicProfileResponseDto } from './dto/mechanic-profile--response.dto';
+import { Role } from '@prisma/client';
 export declare class MechanicController {
     private readonly mechanicService;
     constructor(mechanicService: MechanicService);
-    getProfile(req: any): Promise<{
-        success: boolean;
-        message: string;
-        data: MechanicProfileResponseDto;
+    getMechanicProfile(id: string, callerRole: Role): Promise<{
+        skills: {
+            id: string;
+            name: string;
+        }[];
+    } & {
+        id: string;
+        email: string;
+        password: string;
+        firstName: string | null;
+        lastName: string | null;
+        role: import(".prisma/client").$Enums.Role;
+        status: import(".prisma/client").$Enums.Status;
+        shopName: string | null;
+        location: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        experienceYears: number | null;
+        profilePictureUrl: string | null;
+        bio: string | null;
+        certificationUrls: string[];
+        deletedAt: Date | null;
+        lastLogin: Date | null;
     }>;
-    updateProfile(req: any, dto: UpdateMechanicDto): Promise<{
-        success: boolean;
-        message: string;
-        data: MechanicProfileResponseDto;
+    updateMechanicProfile(callerId: string, dto: UpdateMechanicDto): Promise<{
+        skills: {
+            id: string;
+            name: string;
+        }[];
+    } & {
+        id: string;
+        email: string;
+        password: string;
+        firstName: string | null;
+        lastName: string | null;
+        role: import(".prisma/client").$Enums.Role;
+        status: import(".prisma/client").$Enums.Status;
+        shopName: string | null;
+        location: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        experienceYears: number | null;
+        profilePictureUrl: string | null;
+        bio: string | null;
+        certificationUrls: string[];
+        deletedAt: Date | null;
+        lastLogin: Date | null;
     }>;
-    uploadCertification(req: any, file: Express.Multer.File): Promise<{
-        success: boolean;
-        message: string;
-        data: string[];
+    saveCertification(callerId: string, file: Express.Multer.File): Promise<string[]>;
+    uploadProfilePicture(callerId: string, file: Express.Multer.File): Promise<{
+        id: string;
+        email: string;
+        password: string;
+        firstName: string | null;
+        lastName: string | null;
+        role: import(".prisma/client").$Enums.Role;
+        status: import(".prisma/client").$Enums.Status;
+        shopName: string | null;
+        location: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        experienceYears: number | null;
+        profilePictureUrl: string | null;
+        bio: string | null;
+        certificationUrls: string[];
+        deletedAt: Date | null;
+        lastLogin: Date | null;
     }>;
-    uploadProfilePicture(req: any, file: Express.Multer.File): Promise<{
-        success: boolean;
-        message: string;
-        data: MechanicProfileResponseDto;
+    createService(callerId: string, dto: CreateMechanicServiceDto): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        description: string | null;
+        title: string;
+        price: number;
+        estimatedTime: string | null;
+        availability: string | null;
+        mechanicId: string;
     }>;
-    createService(req: any, dto: CreateMechanicServiceDto): Promise<{
-        success: boolean;
-        message: string;
-        data: ServiceResponseDto;
+    getAllMechanicServices(callerId: string, callerRole: Role): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        description: string | null;
+        title: string;
+        price: number;
+        estimatedTime: string | null;
+        availability: string | null;
+        mechanicId: string;
+    }[]>;
+    updateMechanicService(serviceId: string, callerId: string, dto: UpdateServiceDto): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        description: string | null;
+        title: string;
+        price: number;
+        estimatedTime: string | null;
+        availability: string | null;
+        mechanicId: string;
     }>;
-    getServices(req: any): Promise<{
-        success: boolean;
-        message: string;
-        data: ServiceResponseDto[];
-    }>;
-    updateService(req: any, dto: UpdateServiceDto, id: string): Promise<{
-        success: boolean;
-        message: string;
-        data: ServiceResponseDto;
-    }>;
-    deleteService(req: any, id: string): Promise<{
+    deleteMechanicService(serviceId: string, callerId: string): Promise<{
         success: boolean;
         message: string;
         data: null;

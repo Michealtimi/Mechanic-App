@@ -1,5 +1,7 @@
 export declare class CreateMechanicDto {
     email: string;
+    firstName: string;
+    lastName: string;
     password: string;
     shopName: string;
     location?: string;

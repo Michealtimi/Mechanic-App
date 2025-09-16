@@ -15,133 +15,131 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.MechanicController = void 0;
 const common_1 = require("@nestjs/common");
 const platform_express_1 = require("@nestjs/platform-express");
-const swagger_1 = require("@nestjs/swagger");
+const multer_1 = require("multer");
 const mechanic_service_1 = require("./mechanic.service");
 const create_mechanic_service_dto_1 = require("./dto/create-mechanic-service.dto");
 const update_service_dto_1 = require("./dto/update-service.dto");
-const service_response_dto_1 = require("./dto/service-response.dto");
+const update_mechanic_dto_1 = require("./dto/update.mechanic.dto");
+const get_user_decorator_1 = require("../utils/get-user.decorator");
+const client_1 = require("@prisma/client");
 const jwt_guard_1 = require("../auth/jwt.guard");
 const roles_guards_1 = require("../common/guard/roles.guards");
-const roles_decorators_1 = require("../common/decorators/roles.decorators");
-const client_1 = require("@prisma/client");
-const update_mechanic_dto_1 = require("./dto/update.mechanic.dto");
-const mechanic_profile__response_dto_1 = require("./dto/mechanic-profile--response.dto");
 let MechanicController = class MechanicController {
     mechanicService;
     constructor(mechanicService) {
         this.mechanicService = mechanicService;
     }
-    async getProfile(req) {
-        return this.mechanicService.getMechanicProfile(req.user.id);
+    getMechanicProfile(id, callerRole) {
+        return this.mechanicService.getMechanicProfile(id, callerRole);
     }
-    async updateProfile(req, dto) {
-        return this.mechanicService.updateMechanicProfile(req.user.id, dto);
+    updateMechanicProfile(callerId, dto) {
+        return this.mechanicService.updateMechanicProfile(callerId, dto, callerId);
     }
-    async uploadCertification(req, file) {
-        return this.mechanicService.saveCertification(req.user.id, file.filename);
+    saveCertification(callerId, file) {
+        return this.mechanicService.saveCertification(callerId, file.filename, callerId);
     }
-    async uploadProfilePicture(req, file) {
-        return this.mechanicService.uploadProfilePicture(req.user.id, file);
+    uploadProfilePicture(callerId, file) {
+        return this.mechanicService.uploadProfilePicture(callerId, file.filename, callerId);
     }
-    async createService(req, dto) {
-        return this.mechanicService.createService(req.user.id, dto);
+    createService(callerId, dto) {
+        return this.mechanicService.createService(callerId, dto, callerId);
     }
-    async getServices(req) {
-        return this.mechanicService.getAllMechanicServices(req.user.id);
+    getAllMechanicServices(callerId, callerRole) {
+        return this.mechanicService.getAllMechanicServices(callerId, callerId, callerRole);
     }
-    async updateService(req, dto, id) {
-        return this.mechanicService.updateMechanicService(id, req.user.id, dto);
+    updateMechanicService(serviceId, callerId, dto) {
+        return this.mechanicService.updateMechanicService(serviceId, callerId, dto);
     }
-    async deleteService(req, id) {
-        return this.mechanicService.deleteMechanicService(id, req.user.id);
+    deleteMechanicService(serviceId, callerId) {
+        return this.mechanicService.deleteMechanicService(serviceId, callerId);
     }
 };
 exports.MechanicController = MechanicController;
 __decorate([
     (0, common_1.Get)('profile'),
-    (0, swagger_1.ApiOperation)({ summary: 'Get logged-in mechanic profile' }),
-    (0, swagger_1.ApiResponse)({ status: 200, type: mechanic_profile__response_dto_1.MechanicProfileResponseDto }),
-    __param(0, (0, common_1.Req)()),
+    __param(0, (0, get_user_decorator_1.GetUser)('id')),
+    __param(1, (0, get_user_decorator_1.GetUser)('role')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", Promise)
-], MechanicController.prototype, "getProfile", null);
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", void 0)
+], MechanicController.prototype, "getMechanicProfile", null);
 __decorate([
     (0, common_1.Patch)('profile'),
-    (0, swagger_1.ApiOperation)({ summary: 'Update logged-in mechanic profile' }),
-    (0, swagger_1.ApiResponse)({ status: 200, type: mechanic_profile__response_dto_1.MechanicProfileResponseDto }),
-    __param(0, (0, common_1.Req)()),
+    __param(0, (0, get_user_decorator_1.GetUser)('id')),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, update_mechanic_dto_1.UpdateMechanicDto]),
-    __metadata("design:returntype", Promise)
-], MechanicController.prototype, "updateProfile", null);
+    __metadata("design:paramtypes", [String, update_mechanic_dto_1.UpdateMechanicDto]),
+    __metadata("design:returntype", void 0)
+], MechanicController.prototype, "updateMechanicProfile", null);
 __decorate([
     (0, common_1.Post)('certification'),
-    (0, swagger_1.ApiOperation)({ summary: 'Upload certification' }),
-    (0, swagger_1.ApiConsumes)('multipart/form-data'),
-    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
-    __param(0, (0, common_1.Req)()),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file', {
+        storage: (0, multer_1.diskStorage)({
+            destination: './uploads/certifications',
+            filename: (req, file, cb) => {
+                const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+                cb(null, `${file.fieldname}-${uniqueSuffix}${file.originalname.slice(-4)}`);
+            },
+        }),
+    })),
+    __param(0, (0, get_user_decorator_1.GetUser)('id')),
     __param(1, (0, common_1.UploadedFile)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, Object]),
-    __metadata("design:returntype", Promise)
-], MechanicController.prototype, "uploadCertification", null);
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], MechanicController.prototype, "saveCertification", null);
 __decorate([
     (0, common_1.Post)('profile-picture'),
-    (0, swagger_1.ApiOperation)({ summary: 'Upload profile picture' }),
-    (0, swagger_1.ApiConsumes)('multipart/form-data'),
-    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
-    __param(0, (0, common_1.Req)()),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file', {
+        storage: (0, multer_1.diskStorage)({
+            destination: './uploads/profile-pictures',
+            filename: (req, file, cb) => {
+                const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+                cb(null, `${file.fieldname}-${uniqueSuffix}${file.originalname.slice(-4)}`);
+            },
+        }),
+    })),
+    __param(0, (0, get_user_decorator_1.GetUser)('id')),
     __param(1, (0, common_1.UploadedFile)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, Object]),
-    __metadata("design:returntype", Promise)
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
 ], MechanicController.prototype, "uploadProfilePicture", null);
 __decorate([
     (0, common_1.Post)('service'),
-    (0, swagger_1.ApiOperation)({ summary: 'Create a service for logged-in mechanic' }),
-    (0, swagger_1.ApiResponse)({ status: 201, type: service_response_dto_1.ServiceResponseDto }),
-    __param(0, (0, common_1.Req)()),
+    __param(0, (0, get_user_decorator_1.GetUser)('id')),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, create_mechanic_service_dto_1.CreateMechanicServiceDto]),
-    __metadata("design:returntype", Promise)
+    __metadata("design:paramtypes", [String, create_mechanic_service_dto_1.CreateMechanicServiceDto]),
+    __metadata("design:returntype", void 0)
 ], MechanicController.prototype, "createService", null);
 __decorate([
     (0, common_1.Get)('services'),
-    (0, swagger_1.ApiOperation)({ summary: 'Get all services for logged-in mechanic' }),
-    (0, swagger_1.ApiResponse)({ status: 200, type: [service_response_dto_1.ServiceResponseDto] }),
-    __param(0, (0, common_1.Req)()),
+    __param(0, (0, get_user_decorator_1.GetUser)('id')),
+    __param(1, (0, get_user_decorator_1.GetUser)('role')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", Promise)
-], MechanicController.prototype, "getServices", null);
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", void 0)
+], MechanicController.prototype, "getAllMechanicServices", null);
 __decorate([
     (0, common_1.Patch)('service/:id'),
-    (0, swagger_1.ApiOperation)({ summary: 'Update a service for logged-in mechanic' }),
-    (0, swagger_1.ApiResponse)({ status: 200, type: service_response_dto_1.ServiceResponseDto }),
-    __param(0, (0, common_1.Req)()),
-    __param(1, (0, common_1.Body)()),
-    __param(2, (0, common_1.Param)('id')),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, get_user_decorator_1.GetUser)('id')),
+    __param(2, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, update_service_dto_1.UpdateServiceDto, String]),
-    __metadata("design:returntype", Promise)
-], MechanicController.prototype, "updateService", null);
+    __metadata("design:paramtypes", [String, String, update_service_dto_1.UpdateServiceDto]),
+    __metadata("design:returntype", void 0)
+], MechanicController.prototype, "updateMechanicService", null);
 __decorate([
     (0, common_1.Delete)('service/:id'),
-    (0, swagger_1.ApiOperation)({ summary: 'Delete a service for logged-in mechanic' }),
-    __param(0, (0, common_1.Req)()),
-    __param(1, (0, common_1.Param)('id')),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, get_user_decorator_1.GetUser)('id')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String]),
-    __metadata("design:returntype", Promise)
-], MechanicController.prototype, "deleteService", null);
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", void 0)
+], MechanicController.prototype, "deleteMechanicService", null);
 exports.MechanicController = MechanicController = __decorate([
-    (0, swagger_1.ApiTags)('Mechanic'),
-    (0, swagger_1.ApiBearerAuth)(),
     (0, common_1.UseGuards)(jwt_guard_1.JwtAuthGuard, roles_guards_1.RolesGuard),
-    (0, roles_decorators_1.Roles)(client_1.Role.MECHANIC),
     (0, common_1.Controller)('mechanic'),
     __metadata("design:paramtypes", [mechanic_service_1.MechanicService])
 ], MechanicController);

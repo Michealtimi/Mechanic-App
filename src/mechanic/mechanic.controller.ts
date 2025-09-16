@@ -1,110 +1,119 @@
-/* eslint-disable prettier/prettier */
- 
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
- 
-/* eslint-disable prettier/prettier */
+// src/mechanic/mechanic.controller.ts
+
 import {
   Controller,
-  Get,
-  Patch,
   Post,
-  Delete,
   Body,
+  Get,
+  Param,
+  Patch,
+  Delete,
   UseGuards,
   UploadedFile,
   UseInterceptors,
   Req,
-  Param,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiConsumes,} from '@nestjs/swagger';
+import { diskStorage } from 'multer';
 import { MechanicService } from './mechanic.service';
-
 import { CreateMechanicServiceDto } from './dto/create-mechanic-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
-import { ServiceResponseDto } from './dto/service-response.dto';
-
-
-import { JwtAuthGuard } from 'src/auth/jwt.guard';
-import { RolesGuard } from 'src/common/guard/roles.guards';
-import { Roles } from 'src/common/decorators/roles.decorators';
-import { Role } from '@prisma/client';
 import { UpdateMechanicDto } from './dto/update.mechanic.dto';
-import { MechanicProfileResponseDto } from './dto/mechanic-profile--response.dto';
+import { GetUser } from 'src/utils/get-user.decorator';
+import { Role } from '@prisma/client';
+import { JwtAuthGuard } from 'src/auth/jwt.guard';
 
-@ApiTags('Mechanic')
-@ApiBearerAuth()
+import { RolesGuard } from 'src/common/guard/roles.guards';
+
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.MECHANIC)
 @Controller('mechanic')
 export class MechanicController {
   constructor(private readonly mechanicService: MechanicService) {}
 
   @Get('profile')
-  @ApiOperation({ summary: 'Get logged-in mechanic profile' })
-  @ApiResponse({ status: 200, type: MechanicProfileResponseDto })
-  async getProfile(@Req() req) {
-    return this.mechanicService.getMechanicProfile(req.user.id);
+  getMechanicProfile(@GetUser('id') id: string, @GetUser('role') callerRole: Role) {
+    // Pass the user's ID and role to the service
+    return this.mechanicService.getMechanicProfile(id, callerRole);
   }
 
   @Patch('profile')
-  @ApiOperation({ summary: 'Update logged-in mechanic profile' })
-  @ApiResponse({ status: 200, type: MechanicProfileResponseDto })
-  async updateProfile(@Req() req, @Body() dto: UpdateMechanicDto) {
-    return this.mechanicService.updateMechanicProfile(req.user.id, dto);
+  updateMechanicProfile(
+    @GetUser('id') callerId: string,
+    @Body() dto: UpdateMechanicDto,
+  ) {
+    // Pass the caller's ID and the DTO to the service
+    return this.mechanicService.updateMechanicProfile(callerId, dto, callerId);
   }
 
   @Post('certification')
-  @ApiOperation({ summary: 'Upload certification' })
-  @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('file'))
-  async uploadCertification(
-    @Req() req,
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: './uploads/certifications',
+        filename: (req, file, cb) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          cb(null, `${file.fieldname}-${uniqueSuffix}${file.originalname.slice(-4)}`);
+        },
+      }),
+    }),
+  )
+  saveCertification(
+    @GetUser('id') callerId: string,
     @UploadedFile() file: Express.Multer.File,
   ) {
-    return this.mechanicService.saveCertification(req.user.id, file.filename);
+    // Pass the caller's ID and filename to the service
+    return this.mechanicService.saveCertification(callerId, file.filename, callerId);
   }
 
   @Post('profile-picture')
-  @ApiOperation({ summary: 'Upload profile picture' })
-  @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('file'))
-  async uploadProfilePicture(
-    @Req() req,
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: './uploads/profile-pictures',
+        filename: (req, file, cb) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          cb(null, `${file.fieldname}-${uniqueSuffix}${file.originalname.slice(-4)}`);
+        },
+      }),
+    }),
+  )
+  uploadProfilePicture(
+    @GetUser('id') callerId: string,
     @UploadedFile() file: Express.Multer.File,
   ) {
-    return this.mechanicService.uploadProfilePicture(req.user.id, file);
+    // Pass the caller's ID and filename to the service
+    return this.mechanicService.uploadProfilePicture(callerId, file.filename, callerId);
   }
 
   @Post('service')
-  @ApiOperation({ summary: 'Create a service for logged-in mechanic' })
-  @ApiResponse({ status: 201, type: ServiceResponseDto })
-  async createService(@Req() req, @Body() dto: CreateMechanicServiceDto) {
-    return this.mechanicService.createService(req.user.id, dto);
+  createService(
+    @GetUser('id') callerId: string,
+    @Body() dto: CreateMechanicServiceDto,
+  ) {
+    // Pass the caller's ID and the DTO to the service
+    return this.mechanicService.createService(callerId, dto, callerId);
   }
 
   @Get('services')
-  @ApiOperation({ summary: 'Get all services for logged-in mechanic' })
-  @ApiResponse({ status: 200, type: [ServiceResponseDto] })
-  async getServices(@Req() req) {
-    return this.mechanicService.getAllMechanicServices(req.user.id);
+  getAllMechanicServices(@GetUser('id') callerId: string, @GetUser('role') callerRole: Role) {
+    // Pass both the ID and the caller's role to the service
+    return this.mechanicService.getAllMechanicServices(callerId, callerId, callerRole);
   }
 
   @Patch('service/:id')
-  @ApiOperation({ summary: 'Update a service for logged-in mechanic' })
-  @ApiResponse({ status: 200, type: ServiceResponseDto })
-  async updateService(
-    @Req() req,
+  updateMechanicService(
+    @Param('id') serviceId: string,
+    @GetUser('id') callerId: string,
     @Body() dto: UpdateServiceDto,
-    @Param('id') id: string,
   ) {
-    return this.mechanicService.updateMechanicService(id, req.user.id, dto);
+    return this.mechanicService.updateMechanicService(serviceId, callerId, dto);
   }
 
   @Delete('service/:id')
-  @ApiOperation({ summary: 'Delete a service for logged-in mechanic' })
-  async deleteService(@Req() req, @Param('id') id: string) {
-    return this.mechanicService.deleteMechanicService(id, req.user.id);
+  deleteMechanicService(
+    @Param('id') serviceId: string,
+    @GetUser('id') callerId: string,
+  ) {
+    return this.mechanicService.deleteMechanicService(serviceId, callerId);
   }
 }

@@ -8,17 +8,17 @@ datasource db {
 }
 
 model Skill {
-  id          String    @id @default(uuid())
-  name        String    @unique // The name of the skill (e.g., 'Brake Repair')
-  users       User[]    // This creates the relationship back to the User model
+  id    String @id @default(uuid())
+  name  String @unique // The name of the skill (e.g., 'Brake Repair')
+  users User[] // This creates the relationship back to the User model
 }
 
 model User {
   id                String            @id @default(uuid())
   email             String            @unique
   password          String
-  firstName     String?
-  lastName      String?
+  firstName         String?
+  lastName          String?
   role              Role              @default(CUSTOMER)
   status            Status            @default(PENDING) // now an enum
   shopName          String?
@@ -36,9 +36,8 @@ model User {
   deletedAt         DateTime?
   lastLogin         DateTime? // added — updated on login
   refreshTokens     RefreshToken[] // relation to stored refresh tokens
-  auditLogs         AuditLog[] @relation("UserAuditLogs") 
+  auditLogs         AuditLog[]        @relation("UserAuditLogs")
 }
-
 
 model MechanicService {
   id            String    @id @default(uuid())
@@ -67,8 +66,6 @@ model Booking {
   mechanic    User            @relation("MechanicBookings", fields: [mechanicId], references: [id])
   service     MechanicService @relation(fields: [serviceId], references: [id])
 }
-
-
 
 /**
  * Stored refresh tokens so you can revoke / validate refresh tokens server-side.

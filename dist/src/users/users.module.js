@@ -12,13 +12,14 @@ const users_service_1 = require("./users.service");
 const users_controller_1 = require("./users.controller");
 const jwt_strategy_1 = require("../auth/jwt.strategy");
 const prisma_service_1 = require("../../prisma/prisma.service");
+const mail_service_1 = require("../utils/mail.service");
 let UsersModule = class UsersModule {
 };
 exports.UsersModule = UsersModule;
 exports.UsersModule = UsersModule = __decorate([
     (0, common_1.Module)({
         controllers: [users_controller_1.UsersController],
-        providers: [users_service_1.UsersService, jwt_strategy_1.JwtStrategy, prisma_service_1.PrismaService],
+        providers: [users_service_1.UsersService, jwt_strategy_1.JwtStrategy, prisma_service_1.PrismaService, mail_service_1.MailService],
         exports: [users_service_1.UsersService],
     })
 ], UsersModule);

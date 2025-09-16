@@ -15,6 +15,8 @@ const swagger_1 = require("@nestjs/swagger");
 const class_transformer_1 = require("class-transformer");
 class CreateMechanicDto {
     email;
+    firstName;
+    lastName;
     password;
     shopName;
     location;
@@ -30,6 +32,18 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateMechanicDto.prototype, "email", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: 'Segun', description: 'FirstName of the mechanic' }),
+    (0, class_validator_1.IsNotEmpty)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateMechanicDto.prototype, "firstName", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: 'Farmer', description: 'LastName of the mechanic' }),
+    (0, class_validator_1.IsNotEmpty)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateMechanicDto.prototype, "lastName", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ example: 'securePassword123', description: 'Password for the mechanic account' }),
     (0, class_validator_1.IsNotEmpty)(),

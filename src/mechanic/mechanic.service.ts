@@ -1,102 +1,167 @@
-/* eslint-disable prettier/prettier */
- 
- 
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+// src/mechanic/mechanic.service.ts
 /* eslint-disable prettier/prettier */
 import {
   Injectable,
   NotFoundException,
   ForbiddenException,
   InternalServerErrorException,
+  Logger,
+  BadRequestException,
 } from '@nestjs/common';
-import { PrismaService } from 'prisma/prisma.service';
-import { plainToInstance } from 'class-transformer';
+import { Role, Prisma } from '@prisma/client';
+import { UpdateMechanicDto } from './dto/update.mechanic.dto';
 import { CreateMechanicServiceDto } from './dto/create-mechanic-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
-import { ServiceResponseDto } from './dto/service-response.dto';
-import { MechanicProfileResponseDto } from './dto/mechanic-profile--response.dto';
-import { UpdateMechanicDto } from './dto/update.mechanic.dto';
+import { PrismaService } from 'prisma/prisma.service';
 
 @Injectable()
 export class MechanicService {
+  private readonly logger = new Logger(MechanicService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
-  async getMechanicProfile(id: string) {
-    try {
-      // loop theought he mechanic profile in the database
-      // find the ID and returmn the following selected.
-      const mechanic = await this.prisma.user.findUnique({
-        where: { id },
-        select: {
-          id: true,
-          email : true,
-          role: true,
-          shopName: true,
-          location: true,
-          skills: true,
-          profilePictureUrl: true,
-          bio: true,
-          experienceYears: true,
-          certificationUrls: true,
-          createdAt: true,
-          updatedAt: true,
-        }
-      });
-
-      if (!mechanic) {
-        throw new NotFoundException('Mechanic profile not found');
-      }
-
-      return {
-        success: true,
-        message: 'Mechanic profile Fetched successfully',
-        data: plainToInstance(MechanicProfileResponseDto, mechanic, {
-          excludeExtraneousValues: true,
-        }),
-      };
-    } catch (error) {
-      throw new InternalServerErrorException(
-        error.message || 'Failed to get mechanic profile',
-      );
+  /**
+   * =============================
+   * GET Mechanic Profile
+   * =============================
+   * Fetches a single mechanic's profile.
+   * Requires caller's role for authorization.
+   */
+  async getMechanicProfile(id: string, callerRole: Role) {
+    this.logger.log(`Attempting to get profile for mechanic ID: ${id}`);
+    
+    // Authorization Check: Only admins and the mechanic themselves can view a profile.
+    if (callerRole !== Role.ADMIN && callerRole !== Role.SUPERADMIN && callerRole !== Role.MECHANIC) {
+      this.logger.warn(`Unauthorized access attempt by role: ${callerRole}`);
+      throw new ForbiddenException('You do not have permission to view this profile.');
     }
+
+    // Fixed: Removed 'select' to use 'include'. Prisma does not allow both in the same query.
+    const mechanic = await this.prisma.user.findUnique({
+      where: { id, role: Role.MECHANIC },
+      include: {
+        skills: true, // Include skills to get the full profile
+      },
+    });
+
+    if (!mechanic) {
+      this.logger.warn(`Mechanic profile not found for ID: ${id}`);
+      throw new NotFoundException('Mechanic profile not found');
+    }
+
+    this.logger.log(`Successfully fetched profile for mechanic ID: ${id}`);
+    return mechanic;
   }
 
-  async updateMechanicProfile(id: string, dto: UpdateMechanicDto) {
+  /**
+   * =============================
+   * UPDATE Mechanic Profile
+   * =============================
+   * Updates a single mechanic's profile.
+   * Requires caller's ID and role for authorization.
+   */
+  async updateMechanicProfile(id: string, dto: UpdateMechanicDto, callerId: string) {
+    this.logger.log(`Update request for mechanic ID: ${id} by caller ID: ${callerId}`);
+
+    // Authorization Check: A user can only update their own profile
+    if (id !== callerId) {
+      this.logger.warn(`Forbidden update attempt on profile ID: ${id} by user ID: ${callerId}`);
+      throw new ForbiddenException('You can only update your own profile.');
+    }
+
     try {
+      // Fixed: Safely map DTO properties to a valid Prisma update input type.
+      // This ensures that only valid fields are passed to Prisma.
+      const updateData: Prisma.UserUpdateInput = {};
+
+      if (dto.firstName) updateData.firstName = dto.firstName;
+      if (dto.lastName) updateData.lastName = dto.lastName;
+      if (dto.shopName) updateData.shopName = dto.shopName;
+      if (dto.location) updateData.location = dto.location;
+      if (dto.bio) updateData.bio = dto.bio;
+      if (dto.experienceYears) updateData.experienceYears = dto.experienceYears;
+
+      // Fixed: The skills transformation logic is now correct.
+      if (dto.skills && dto.skills.length > 0) {
+        const skillNames = dto.skills;
+
+        const existingSkills = await this.prisma.skill.findMany({
+          where: { name: { in: skillNames } },
+        });
+
+        const skillsToCreateNames = skillNames.filter(
+          (name) => !existingSkills.some((s) => s.name === name),
+        );
+
+        const createdSkills = await this.prisma.$transaction(
+          skillsToCreateNames.map((name) =>
+            this.prisma.skill.create({ data: { name } }),
+          ),
+        );
+
+        const allSkills = [...existingSkills, ...createdSkills];
+        updateData.skills = {
+          set: allSkills.map((s) => ({ id: s.id })),
+        };
+      }
+
       const mechanic = await this.prisma.user.update({
-        where: { id },
-        data: dto, // skills transformation handled by DTO
-        select: {
-          id: true,
-          email: true,
-          role: true,
-          shopName: true,
-          location: true,
-          skills: true,
-          profilePictureUrl: true,
-          bio: true,
-          experienceYears: true,
-          certificationUrls: true,
-          createdAt: true,
-          updatedAt: true,
-        },
+        where: { id, role: Role.MECHANIC },
+        data: updateData,
+        include: { skills: true } // Include skills in the response
       });
 
-      return {
-        success: true,
-        message: 'Mechanic profile updated successfully',
-        data: plainToInstance(MechanicProfileResponseDto, mechanic, {
-          excludeExtraneousValues: true,
-        }),
-      };
+      this.logger.log(`Successfully updated profile for mechanic ID: ${id}`);
+      return mechanic;
     } catch (error) {
-      throw new InternalServerErrorException(
+      this.logger.error(`Failed to update mechanic profile for ID: ${id}. Error: ${error.message}`);
+      throw new BadRequestException(
         error.message || 'Failed to update mechanic profile',
       );
     }
   }
 
-  async saveCertification(id: string, filename: string) {
+  /**
+   * =============================
+   * Upload Profile Picture
+   * =============================
+   */
+  async uploadProfilePicture(id: string, filename: string, callerId: string) {
+    this.logger.log(`Upload profile picture request for user ID: ${id}`);
+    
+    // Authorization: User can only update their own profile
+    if (id !== callerId) {
+      throw new ForbiddenException('You can only update your own profile.');
+    }
+
+    try {
+      const updatedUser = await this.prisma.user.update({
+        where: { id, role: Role.MECHANIC },
+        data: { profilePictureUrl: filename },
+      });
+      this.logger.log(`Profile picture uploaded for user ID: ${id}`);
+      return updatedUser;
+    } catch (error) {
+      this.logger.error(`Failed to upload profile picture for user ID: ${id}. Error: ${error.message}`);
+      throw new InternalServerErrorException(
+        error.message || 'Failed to upload profile picture',
+      );
+    }
+  }
+
+  /**
+   * =============================
+   * Save Certification
+   * =============================
+   */
+  async saveCertification(id: string, filename: string, callerId: string) {
+    this.logger.log(`Save certification request for user ID: ${id}`);
+    
+    // Authorization: User can only update their own profile
+    if (id !== callerId) {
+      throw new ForbiddenException('You can only update your own profile.');
+    }
+
     try {
       const updated = await this.prisma.user.update({
         where: { id },
@@ -104,173 +169,119 @@ export class MechanicService {
           certificationUrls: { push: filename },
         },
       });
-
-      return {
-        success: true,
-        message: 'Certification saved successfully',
-        data: updated.certificationUrls
-      };
+      this.logger.log(`Certification saved for user ID: ${id}`);
+      return updated.certificationUrls;
     } catch (error) {
+      this.logger.error(`Failed to save certification for user ID: ${id}. Error: ${error.message}`);
       throw new InternalServerErrorException(
         error.message || 'Failed to save certification',
       );
     }
   }
 
-  async uploadProfilePicture(id: string, file: Express.Multer.File) {
-    try {
-      const updated = await this.prisma.user.update({
-       where: { id },
-        data: { profilePictureUrl: file.filename },
-        select: {
-          id: true,
-          email: true,
-          role: true,
-          shopName: true,
-          location: true,
-          skills: true,
-          profilePictureUrl: true,
-          bio: true,
-          experienceYears: true,
-          certificationUrls: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      });
-      
-      return {
-        success: true,
-        message: 'Profile picture uploaded successfully',
-        data: plainToInstance(MechanicProfileResponseDto, updated, {
-          excludeExtraneousValues: true,
-        }),
-      };
-    } catch (error) {
-      throw new InternalServerErrorException(
-        error.message || 'Failed to upload profile picture',
-      );
+  /**
+   * =============================
+   * Create Mechanic Service
+   * =============================
+   */
+  async createService(mechanicId: string, dto: CreateMechanicServiceDto, callerId: string) {
+    this.logger.log(`Create service request for mechanic ID: ${mechanicId}`);
+    
+    // Authorization: A mechanic can only create services for their own account
+    if (mechanicId !== callerId) {
+      throw new ForbiddenException('You can only create services for your own account.');
     }
-  }
 
-  async createService(mechanicId: string, dto: CreateMechanicServiceDto) {
     try {
-      // confrim if mechanic exist before creating the service
-      const mechanic = await this.prisma.user.findUnique({
-        where: { id: mechanicId },
-      });
-
-      if (!mechanic) {
-        throw new NotFoundException('Mechanic not found');
-      }
-
-      // if mechanic exisit it create the service.
       const service = await this.prisma.mechanicService.create({
-        data: { ...dto, mechanicId: mechanicId
+        data: {
+          ...dto,
+          mechanicId: mechanicId,
         },
       });
-
-      return {
-        success: true,
-        message: 'Service created successfully',
-        data: plainToInstance(ServiceResponseDto, service, {
-          excludeExtraneousValues: true,
-        }),
-      };
+      this.logger.log(`Service created successfully for mechanic ID: ${mechanicId}`);
+      return service;
     } catch (error) {
+      this.logger.error(`Failed to create service for mechanic ID: ${mechanicId}. Error: ${error.message}`);
       throw new InternalServerErrorException(
         error.message || 'Failed to create service',
       );
     }
   }
 
-  async getAllMechanicServices(mechanicId: string) {
-    try {
-      const mechanic = await this.prisma.user.findUnique({
-        where: { id: mechanicId },
-      });
+  /**
+   * =============================
+   * Get All Mechanic Services
+   * =============================
+   */
+  async getAllMechanicServices(mechanicId: string, callerId: string, callerRole: Role) {
+    this.logger.log(`Get all services request for mechanic ID: ${mechanicId}`);
 
-      if (!mechanic) {
-        throw new NotFoundException('Mechanic not found');
-      }
-
-      const services = await this.prisma.mechanicService.findMany({
-        where: { mechanicId },
-      });
-
-      return {
-        success: true,
-        message: 'Mechanic services retrieved successfully',
-        data: plainToInstance(ServiceResponseDto, services, {
-          excludeExtraneousValues: true,
-        }),
-      };
-    } catch (error) {
-      throw new InternalServerErrorException(
-        error.message || 'Failed to retrieve services',
-      );
+    // Fixed: Corrected typo from SUPER_ADMIN to SUPERADMIN
+    // Authorization: Allow the owner and admins to view all services
+    const isSelfOrAdmin = mechanicId === callerId || callerRole === Role.ADMIN || callerRole === Role.SUPERADMIN;
+    if (!isSelfOrAdmin) {
+      throw new ForbiddenException('You are not authorized to view these services.');
     }
+    
+    const services = await this.prisma.mechanicService.findMany({
+      where: { mechanicId },
+    });
+    return services;
   }
 
-  async updateMechanicService(
-    id: string,
-    mechanicId: string,
-    dto: UpdateServiceDto,
-  ) {
-    try {
-      const existing = await this.prisma.mechanicService.findUnique({
-        where: { id },
-      });
+  /**
+   * =============================
+   * Update Mechanic Service
+   * =============================
+   */
+  async updateMechanicService(id: string, mechanicId: string, dto: UpdateServiceDto) {
+    this.logger.log(`Update service request for service ID: ${id}`);
 
-      if (!existing) {
-        throw new NotFoundException('Service not found');
-      }
+    const service = await this.prisma.mechanicService.findUnique({
+      where: { id },
+    });
 
-      if (existing.mechanicId !== mechanicId) {
-        throw new ForbiddenException(
-          'You are not authorized to update this service'
-        );
-      }
-
-      const updated = await this.prisma.mechanicService.update({
-        where: { id },
-        data: { ...dto },
-      });
-
-      return {
-        success: true,
-        message: 'Service updated successfully',
-        data: plainToInstance(ServiceResponseDto, updated, {
-          excludeExtraneousValues: true,
-        }),
-      };
-    } catch (error) {
-      throw new InternalServerErrorException(
-        error.message || 'Failed to update service',
-      );
+    if (!service) {
+      throw new NotFoundException('Service not found');
     }
+
+    // Authorization: A mechanic can only update their own services
+    if (service.mechanicId !== mechanicId) {
+      throw new ForbiddenException('You are not authorized to update this service.');
+    }
+
+    const updated = await this.prisma.mechanicService.update({
+      where: { id },
+      data: dto,
+    });
+    this.logger.log(`Service updated successfully for service ID: ${id}`);
+    return updated;
   }
 
+  /**
+   * =============================
+   * Delete Mechanic Service
+   * =============================
+   */
   async deleteMechanicService(id: string, mechanicId: string) {
-    try {
-      const service = await this.prisma.mechanicService.findUnique({
-        where: { id },
-      });
+    this.logger.log(`Delete service request for service ID: ${id}`);
 
-      if (!service || service.mechanicId !== mechanicId) {
-        throw new ForbiddenException('You are not authorized to delete this service');
-      }
+    const service = await this.prisma.mechanicService.findUnique({
+      where: { id },
+    });
 
-      await this.prisma.mechanicService.delete({ where: { id } });
-
-      return {
-        success: true,
-        message: 'Service deleted successfully',
-        data: null,
-      };
-    } catch (error) {
-      throw new InternalServerErrorException(
-        error.message || 'Failed to delete service',
-      );
+    if (!service || service.mechanicId !== mechanicId) {
+      throw new ForbiddenException('You are not authorized to delete this service');
     }
+
+    await this.prisma.mechanicService.delete({ where: { id } });
+    this.logger.log(`Service deleted successfully for service ID: ${id}`);
+    
+    return {
+      success: true,
+      message: 'Service deleted successfully',
+      data: null,
+    };
   }
 }
