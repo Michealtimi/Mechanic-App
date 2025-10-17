@@ -11,12 +11,22 @@ import { MailService } from '../utils/mail.service';
 import { RolesGuard } from 'src/common/guard/roles.guards';
 import { JwtStrategy } from './jwt.strategy';
 import { PrismaService } from 'prisma/prisma.service';
+import { ConfigService } from '@nestjs/config';
 
 @Module({
   imports: [
     PassportModule,
-    JwtModule.register({}), // config is injected dynamically
+    JwtModule.registerAsync({
+      // No need to import ConfigModule here as it's global
+      useFactory: async (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_SECRET'),
+        signOptions: { expiresIn: '1d' }, // Example expiration
+      }),
+      inject: [ConfigService],
+      global: true,
+    }),
   ],
+  
   controllers: [AuthController],
   providers: [
     AuthService,

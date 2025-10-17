@@ -43,7 +43,7 @@ export declare class UsersService {
             };
         };
     }>;
-    getUserById(id: string): Promise<{
+    getUserById(id: string, callerId: string, callerRole: Role): Promise<{
         success: boolean;
         message: string;
         data: UserResponseDto;

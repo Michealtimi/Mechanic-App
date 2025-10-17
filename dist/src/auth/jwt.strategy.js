@@ -14,7 +14,7 @@ exports.JwtStrategy = void 0;
 const common_1 = require("@nestjs/common");
 const passport_1 = require("@nestjs/passport");
 const passport_jwt_1 = require("passport-jwt");
-const constant_1 = require("../utils/constant");
+const config_1 = require("@nestjs/config");
 const cookieExtractor = (req) => {
     if (req.cookies && 'token' in req.cookies) {
         return req.cookies.token;
@@ -22,10 +22,14 @@ const cookieExtractor = (req) => {
     return null;
 };
 let JwtStrategy = JwtStrategy_1 = class JwtStrategy extends (0, passport_1.PassportStrategy)(passport_jwt_1.Strategy) {
-    constructor() {
+    constructor(configService) {
+        const secret = configService.get('JWT_SECRET');
+        if (!secret) {
+            throw new Error('JWT_SECRET is not set in environment variables. Please check your .env file.');
+        }
         super({
-            jwtFromRequest: passport_jwt_1.ExtractJwt.fromExtractors([JwtStrategy_1.extractJWT]),
-            secretOrKey: constant_1.jwtSecret ?? 'your_default_jwt_secret',
+            jwtFromRequest: passport_jwt_1.ExtractJwt.fromExtractors([JwtStrategy_1.extractJWT, passport_jwt_1.ExtractJwt.fromAuthHeaderAsBearerToken()]),
+            secretOrKey: secret,
         });
     }
     static extractJWT(req) {
@@ -41,6 +45,6 @@ let JwtStrategy = JwtStrategy_1 = class JwtStrategy extends (0, passport_1.Passp
 exports.JwtStrategy = JwtStrategy;
 exports.JwtStrategy = JwtStrategy = JwtStrategy_1 = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [])
+    __metadata("design:paramtypes", [config_1.ConfigService])
 ], JwtStrategy);
 //# sourceMappingURL=jwt.strategy.js.map

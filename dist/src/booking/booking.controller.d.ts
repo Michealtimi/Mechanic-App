@@ -31,9 +31,9 @@ export declare class BookingController {
             description: string | null;
             title: string;
             price: number;
+            mechanicId: string;
             estimatedTime: string | null;
             availability: string | null;
-            mechanicId: string;
         };
         customer: {
             id: string;
@@ -60,39 +60,55 @@ export declare class BookingController {
         createdAt: Date;
         updatedAt: Date;
         scheduledAt: Date;
+        price: number;
+        paymentId: string | null;
+        paymentStatus: string;
         mechanicId: string;
         serviceId: string;
         customerId: string;
     }>;
-    getBookings(req: any): Promise<({
-        mechanic: {
-            shopName: string | null;
-        };
-        service: {
+    getBookings(req: any): Promise<{
+        data: ({
+            mechanic: {
+                id: string;
+                shopName: string | null;
+            };
+            service: {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                description: string | null;
+                title: string;
+                price: number;
+                mechanicId: string;
+                estimatedTime: string | null;
+                availability: string | null;
+            };
+            customer: {
+                id: string;
+                firstName: string | null;
+                lastName: string | null;
+            };
+        } & {
             id: string;
+            status: import(".prisma/client").$Enums.BookingStatus;
             createdAt: Date;
             updatedAt: Date;
-            description: string | null;
-            title: string;
+            scheduledAt: Date;
             price: number;
-            estimatedTime: string | null;
-            availability: string | null;
+            paymentId: string | null;
+            paymentStatus: string;
             mechanicId: string;
+            serviceId: string;
+            customerId: string;
+        })[];
+        meta: {
+            total: number;
+            skip: number;
+            take: number;
+            hasMore: boolean;
         };
-        customer: {
-            firstName: string | null;
-            lastName: string | null;
-        };
-    } & {
-        id: string;
-        status: import(".prisma/client").$Enums.BookingStatus;
-        createdAt: Date;
-        updatedAt: Date;
-        scheduledAt: Date;
-        mechanicId: string;
-        serviceId: string;
-        customerId: string;
-    })[]>;
+    }>;
     getBookingById(id: string, req: any): Promise<{
         mechanic: {
             id: string;
@@ -120,9 +136,9 @@ export declare class BookingController {
             description: string | null;
             title: string;
             price: number;
+            mechanicId: string;
             estimatedTime: string | null;
             availability: string | null;
-            mechanicId: string;
         };
         customer: {
             id: string;
@@ -149,6 +165,9 @@ export declare class BookingController {
         createdAt: Date;
         updatedAt: Date;
         scheduledAt: Date;
+        price: number;
+        paymentId: string | null;
+        paymentStatus: string;
         mechanicId: string;
         serviceId: string;
         customerId: string;
@@ -159,6 +178,9 @@ export declare class BookingController {
         createdAt: Date;
         updatedAt: Date;
         scheduledAt: Date;
+        price: number;
+        paymentId: string | null;
+        paymentStatus: string;
         mechanicId: string;
         serviceId: string;
         customerId: string;
@@ -169,6 +191,9 @@ export declare class BookingController {
         createdAt: Date;
         updatedAt: Date;
         scheduledAt: Date;
+        price: number;
+        paymentId: string | null;
+        paymentStatus: string;
         mechanicId: string;
         serviceId: string;
         customerId: string;

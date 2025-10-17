@@ -22,7 +22,7 @@ export declare class UsersController {
         message: string;
         data: import("./dto/user-response.dto").UserResponseDto;
     }>;
-    getAllUsers(page: number | undefined, limit: number | undefined, callerRole: Role): Promise<{
+    getAllUsers(page?: number, limit?: number): Promise<{
         success: boolean;
         message: string;
         data: {

@@ -22,6 +22,6 @@ export class SignupMechanicDto {
   @IsOptional()
   @IsArray()
   skills?: string[];
-
+  
   readonly role: Role = Role.MECHANIC;
 }

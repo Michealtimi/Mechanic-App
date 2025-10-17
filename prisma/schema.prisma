@@ -54,17 +54,35 @@ model MechanicService {
 }
 
 model Booking {
-  id          String          @id @default(uuid())
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  customerId  String
-  mechanicId  String
-  serviceId   String
-  status      BookingStatus   @default(PENDING)
-  scheduledAt DateTime
-  customer    User            @relation("CustomerBookings", fields: [customerId], references: [id])
-  mechanic    User            @relation("MechanicBookings", fields: [mechanicId], references: [id])
-  service     MechanicService @relation(fields: [serviceId], references: [id])
+  id            String          @id @default(uuid())
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  customerId    String
+  mechanicId    String
+  serviceId     String
+  status        BookingStatus   @default(PENDING)
+  scheduledAt   DateTime
+  customer      User            @relation("CustomerBookings", fields: [customerId], references: [id])
+  mechanic      User            @relation("MechanicBookings", fields: [mechanicId], references: [id])
+  service       MechanicService @relation(fields: [serviceId], references: [id])
+  payment       Payment?
+  price         Float
+  paymentId     String? // Paystack/Stripe reference
+  paymentStatus String          @default("PENDING")
+}
+
+model Payment {
+  id        String    @id @default(uuid())
+  bookingId String    @unique
+  booking   Booking   @relation(fields: [bookingId], references: [id])
+  amount    Int
+  reference String    @unique
+  status    String    @default("PENDING") // PENDING, SUCCESS, FAILED
+  method    String    @default("PAYSTACK")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  currency  String    @default("NGN")
+  paidAt    DateTime?
 }
 
 /**

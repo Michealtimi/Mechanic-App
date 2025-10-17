@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, ExtractJwt } from 'passport-jwt';
 import { Request } from 'express';
-import { jwtSecret } from 'src/utils/constant';
+import { ConfigService } from '@nestjs/config';
 
 const cookieExtractor = (req: Request): string | null => {
   if (req.cookies && 'token' in req.cookies) {
@@ -13,10 +13,15 @@ const cookieExtractor = (req: Request): string | null => {
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor() {
+  constructor(configService: ConfigService) {
+    const secret = configService.get<string>('JWT_SECRET');
+    if (!secret) {
+      throw new Error('JWT_SECRET is not set in environment variables. Please check your .env file.');
+    }
+
     super({
-      jwtFromRequest: ExtractJwt.fromExtractors([JwtStrategy.extractJWT]),
-      secretOrKey: jwtSecret ?? 'your_default_jwt_secret',
+      jwtFromRequest: ExtractJwt.fromExtractors([JwtStrategy.extractJWT, ExtractJwt.fromAuthHeaderAsBearerToken()]),
+      secretOrKey: secret,
     });
   }
 

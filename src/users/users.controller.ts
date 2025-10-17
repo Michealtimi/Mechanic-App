@@ -63,7 +63,6 @@ export class UsersController {
   getAllUsers(
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
-    @GetUser('role') callerRole: Role,
   ) {
     return this.usersService.getAllUsers(Number(page), Number(limit));
   }
@@ -76,7 +75,7 @@ export class UsersController {
     @GetUser('id') callerId: string,
     @GetUser('role') callerRole: Role,
   ) {
-    return this.usersService.getUserById(id);
+    return this.usersService.getUserById(id, callerId, callerRole);
   }
 
   @Patch(':id')

@@ -21,133 +21,204 @@ let BookingService = BookingService_1 = class BookingService {
         this.prisma = prisma;
     }
     async createBooking(dto, customerId) {
+        console.log(`[createBooking] Starting creation for customer: ${customerId}`);
         this.logger.log(`[createBooking] received request for customer: ${customerId}`);
-        console.log(`[createBooking] DTO: `, dto);
-        const mechanic = await this.prisma.user.findUnique({
-            where: { id: dto.mechanicId },
-        });
-        if (!mechanic) {
-            this.logger.warn(`[createBooking] Mechanic not found: ${dto.mechanicId}`);
-            throw new common_1.NotFoundException('Mechanic not found');
+        try {
+            const mechanic = await this.prisma.user.findUnique({
+                where: { id: dto.mechanicId },
+            });
+            if (!mechanic) {
+                this.logger.warn(`[createBooking] Mechanic not found: ${dto.mechanicId}`);
+                throw new common_1.NotFoundException('Mechanic not found');
+            }
+            const service = await this.prisma.mechanicService.findUnique({
+                where: { id: dto.serviceId },
+            });
+            if (!service) {
+                this.logger.warn(`[createBooking] Service not found: ${dto.serviceId}`);
+                throw new common_1.NotFoundException('Service not found');
+            }
+            if (service.mechanicId !== dto.mechanicId) {
+                this.logger.error(`[createBooking] Forbidden: Service ${dto.serviceId} does not belong to mechanic ${dto.mechanicId}`);
+                throw new common_1.ForbiddenException('Service does not belong to this mechanic');
+            }
+            const existingBooking = await this.prisma.booking.findFirst({
+                where: {
+                    scheduledAt: dto.scheduledAt,
+                    mechanicId: dto.mechanicId,
+                },
+            });
+            if (existingBooking) {
+                this.logger.warn(`[createBooking] Conflict: Time slot at ${dto.scheduledAt} already booked for mechanic ${dto.mechanicId}`);
+                throw new common_1.ConflictException('Time slot already booked');
+            }
+            const booking = await this.prisma.booking.create({
+                data: {
+                    customerId,
+                    mechanicId: dto.mechanicId,
+                    serviceId: dto.serviceId,
+                    scheduledAt: new Date(dto.scheduledAt),
+                    status: dto.status || client_1.BookingStatus.PENDING,
+                    price: service.price,
+                },
+                include: {
+                    customer: true,
+                    mechanic: true,
+                    service: true,
+                },
+            });
+            this.logger.log(`[createBooking] Booking created successfully with ID: ${booking.id}`);
+            console.log(`[createBooking] Successfully created booking ID: ${booking.id}`);
+            return booking;
         }
-        const service = await this.prisma.mechanicService.findUnique({
-            where: { id: dto.serviceId },
-        });
-        if (!service) {
-            this.logger.warn(`[createBooking] Service not found: ${dto.serviceId}`);
-            throw new common_1.NotFoundException('Service not found');
+        catch (err) {
+            this.logger.error(`Failed to create booking for customer ${customerId}`, err.stack);
+            if (err instanceof common_1.NotFoundException ||
+                err instanceof common_1.ForbiddenException ||
+                err instanceof common_1.ConflictException) {
+                throw err;
+            }
+            throw new common_1.InternalServerErrorException('Failed to create booking');
         }
-        if (service.mechanicId !== dto.mechanicId) {
-            this.logger.error(`[createBooking] Forbidden: Service ${dto.serviceId} does not belong to mechanic ${dto.mechanicId}`);
-            throw new common_1.ForbiddenException('Service does not belong to this mechanic');
-        }
-        const existingBooking = await this.prisma.booking.findFirst({
-            where: {
-                scheduledAt: dto.scheduledAt,
-                mechanicId: dto.mechanicId,
-            },
-        });
-        if (existingBooking) {
-            this.logger.warn(`[createBooking] Conflict: Time slot at ${dto.scheduledAt} already booked for mechanic ${dto.mechanicId}`);
-            throw new common_1.ConflictException('Time slot already booked');
-        }
-        const booking = await this.prisma.booking.create({
-            data: {
-                customerId,
-                mechanicId: dto.mechanicId,
-                serviceId: dto.serviceId,
-                scheduledAt: new Date(dto.scheduledAt),
-                status: dto.status || client_1.BookingStatus.PENDING,
-            },
-            include: {
-                customer: true,
-                mechanic: true,
-                service: true,
-            },
-        });
-        this.logger.log(`[createBooking] Booking created successfully with ID: ${booking.id}`);
-        console.log(`[createBooking] New booking data:`, booking);
-        return booking;
     }
-    async getAllBookings(userId) {
-        this.logger.log(`[getAllBookings] Fetching all bookings for user ID: ${userId}`);
-        const bookings = await this.prisma.booking.findMany({
-            where: {
-                OR: [{ mechanicId: userId }, { customerId: userId }],
-            },
-            include: {
-                customer: {
-                    select: { firstName: true, lastName: true },
+    async getAllBookings(userId, filter) {
+        console.log(`[getAllBookings] Fetching bookings for user ID: ${userId} with filters:`, filter);
+        this.logger.log(`[getAllBookings] Fetching bookings for user ID: ${userId}, Status: ${filter.status}, Skip: ${filter.skip}, Take: ${filter.take}`);
+        try {
+            const bookings = await this.prisma.booking.findMany({
+                where: {
+                    OR: [{ mechanicId: userId }, { customerId: userId }],
+                    status: filter?.status,
                 },
-                mechanic: {
-                    select: { shopName: true },
+                orderBy: { scheduledAt: 'desc' },
+                skip: filter?.skip || 0,
+                take: filter?.take || 10,
+                include: {
+                    customer: {
+                        select: { id: true, firstName: true, lastName: true },
+                    },
+                    mechanic: {
+                        select: { id: true, shopName: true },
+                    },
+                    service: true,
                 },
-                service: true,
-            },
-        });
-        this.logger.log(`[getAllBookings] Found ${bookings.length} bookings for user ${userId}`);
-        return bookings;
+            });
+            const total = await this.prisma.booking.count({
+                where: {
+                    OR: [{ mechanicId: userId }, { customerId: userId }],
+                    status: filter?.status,
+                },
+            });
+            this.logger.log(`[getAllBookings] Found ${bookings.length} bookings (Total: ${total}) for user ${userId}`);
+            console.log(`[getAllBookings] Returning ${bookings.length} bookings out of ${total} total.`);
+            return {
+                data: bookings,
+                meta: {
+                    total,
+                    skip: filter?.skip || 0,
+                    take: filter?.take || 10,
+                    hasMore: (filter?.skip || 0) + (filter?.take || 10) < total,
+                },
+            };
+        }
+        catch (err) {
+            this.logger.error(`Failed to get all bookings for user ${userId}`, err.stack);
+            throw new common_1.InternalServerErrorException('Failed to retrieve bookings');
+        }
     }
     async getBookingById(id, userId) {
+        console.log(`[getBookingById] Checking access for booking ID: ${id} by user ${userId}`);
         this.logger.log(`[getBookingById] Fetching booking with ID: ${id} for user ${userId}`);
-        const booking = await this.prisma.booking.findUnique({
-            where: { id },
-            include: {
-                customer: true,
-                mechanic: true,
-                service: true,
-            },
-        });
-        if (!booking) {
-            this.logger.warn(`[getBookingById] Booking with ID ${id} not found.`);
-            throw new common_1.NotFoundException('Booking not found');
+        try {
+            const booking = await this.prisma.booking.findUnique({
+                where: { id },
+                include: {
+                    customer: true,
+                    mechanic: true,
+                    service: true,
+                },
+            });
+            if (!booking) {
+                this.logger.warn(`[getBookingById] Booking with ID ${id} not found.`);
+                throw new common_1.NotFoundException('Booking not found');
+            }
+            if (booking.customerId !== userId && booking.mechanicId !== userId) {
+                this.logger.error(`[getBookingById] Forbidden: User ${userId} does not have access to booking ${id}`);
+                throw new common_1.ForbiddenException('You do not have access to this booking');
+            }
+            this.logger.log(`[getBookingById] Successfully retrieved booking ${id}`);
+            console.log(`[getBookingById] Booking ${id} retrieved.`);
+            return booking;
         }
-        if (booking.customerId !== userId && booking.mechanicId !== userId) {
-            this.logger.error(`[getBookingById] Forbidden: User ${userId} does not have access to booking ${id}`);
-            throw new common_1.ForbiddenException('You do not have access to this booking');
+        catch (err) {
+            this.logger.error(`Failed to get booking by ID ${id}`, err.stack);
+            if (err instanceof common_1.NotFoundException || err instanceof common_1.ForbiddenException) {
+                throw err;
+            }
+            throw new common_1.InternalServerErrorException('Failed to retrieve booking');
         }
-        this.logger.log(`[getBookingById] Successfully retrieved booking ${id}`);
-        return booking;
     }
     async updateBookingStatus(id, dto, mechanicId) {
+        console.log(`[updateBookingStatus] Attempting to update booking ${id} status to ${dto.status}`);
         this.logger.log(`[updateBookingStatus] Updating booking ${id} to status ${dto.status} by mechanic ${mechanicId}`);
-        const booking = await this.prisma.booking.findUnique({
-            where: { id },
-        });
-        if (!booking) {
-            this.logger.warn(`[updateBookingStatus] Booking with ID ${id} not found.`);
-            throw new common_1.NotFoundException('Booking not found');
+        try {
+            const booking = await this.prisma.booking.findUnique({
+                where: { id },
+            });
+            if (!booking) {
+                this.logger.warn(`[updateBookingStatus] Booking with ID ${id} not found.`);
+                throw new common_1.NotFoundException('Booking not found');
+            }
+            if (booking.mechanicId !== mechanicId) {
+                this.logger.error(`[updateBookingStatus] Forbidden: Mechanic ${mechanicId} cannot update booking ${id}`);
+                throw new common_1.ForbiddenException('You cannot update this booking');
+            }
+            const updatedBooking = await this.prisma.booking.update({
+                where: { id },
+                data: { status: dto.status },
+            });
+            this.logger.log(`[updateBookingStatus] Successfully updated booking ${id}`);
+            console.log(`[updateBookingStatus] Booking ${id} updated to ${updatedBooking.status}`);
+            return updatedBooking;
         }
-        if (booking.mechanicId !== mechanicId) {
-            this.logger.error(`[updateBookingStatus] Forbidden: Mechanic ${mechanicId} cannot update booking ${id}`);
-            throw new common_1.ForbiddenException('You cannot update this booking');
+        catch (err) {
+            this.logger.error(`Failed to update booking status for ID ${id}`, err.stack);
+            if (err instanceof common_1.NotFoundException || err instanceof common_1.ForbiddenException) {
+                throw err;
+            }
+            throw new common_1.InternalServerErrorException('Failed to update booking status');
         }
-        const updatedBooking = await this.prisma.booking.update({
-            where: { id },
-            data: { status: dto.status },
-        });
-        this.logger.log(`[updateBookingStatus] Successfully updated booking ${id}`);
-        return updatedBooking;
     }
     async cancelBooking(id, customerId) {
+        console.log(`[cancelBooking] Attempting to cancel booking ${id} by customer ${customerId}`);
         this.logger.log(`[cancelBooking] Cancelling booking ${id} by customer ${customerId}`);
-        const booking = await this.prisma.booking.findUnique({
-            where: { id },
-        });
-        if (!booking) {
-            this.logger.warn(`[cancelBooking] Booking with ID ${id} not found.`);
-            throw new common_1.NotFoundException('Booking not found');
+        try {
+            const booking = await this.prisma.booking.findUnique({
+                where: { id },
+            });
+            if (!booking) {
+                this.logger.warn(`[cancelBooking] Booking with ID ${id} not found.`);
+                throw new common_1.NotFoundException('Booking not found');
+            }
+            if (booking.customerId !== customerId) {
+                this.logger.error(`[cancelBooking] Forbidden: Customer ${customerId} cannot cancel booking ${id}`);
+                throw new common_1.ForbiddenException('You cannot cancel this booking');
+            }
+            const updatedBooking = await this.prisma.booking.update({
+                where: { id },
+                data: { status: client_1.BookingStatus.CANCELLED },
+            });
+            this.logger.log(`[cancelBooking] Successfully cancelled booking ${id}`);
+            console.log(`[cancelBooking] Booking ${id} successfully CANCELLED.`);
+            return updatedBooking;
         }
-        if (booking.customerId !== customerId) {
-            this.logger.error(`[cancelBooking] Forbidden: Customer ${customerId} cannot cancel booking ${id}`);
-            throw new common_1.ForbiddenException('You cannot cancel this booking');
+        catch (err) {
+            this.logger.error(`Failed to cancel booking ID ${id}`, err.stack);
+            if (err instanceof common_1.NotFoundException || err instanceof common_1.ForbiddenException) {
+                throw err;
+            }
+            throw new common_1.InternalServerErrorException('Failed to cancel booking');
         }
-        const updatedBooking = await this.prisma.booking.update({
-            where: { id },
-            data: { status: client_1.BookingStatus.CANCELLED },
-        });
-        this.logger.log(`[cancelBooking] Successfully cancelled booking ${id}`);
-        return updatedBooking;
     }
 };
 exports.BookingService = BookingService;

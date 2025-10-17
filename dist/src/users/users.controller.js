@@ -39,11 +39,11 @@ let UsersController = class UsersController {
     createUser(dto, callerId, callerRole) {
         return this.usersService.createUser(dto, callerId, callerRole);
     }
-    getAllUsers(page = 1, limit = 10, callerRole) {
+    getAllUsers(page = 1, limit = 10) {
         return this.usersService.getAllUsers(Number(page), Number(limit));
     }
     getUserById(id, callerId, callerRole) {
-        return this.usersService.getUserById(id);
+        return this.usersService.getUserById(id, callerId, callerRole);
     }
     updateUser(id, dto, callerId, callerRole) {
         return this.usersService.updateUser(id, dto, callerId, callerRole);
@@ -88,9 +88,8 @@ __decorate([
     (0, swagger_1.ApiQuery)({ name: 'limit', required: false, example: 10 }),
     __param(0, (0, common_1.Query)('page')),
     __param(1, (0, common_1.Query)('limit')),
-    __param(2, (0, get_user_decorator_1.GetUser)('role')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Number, Number, String]),
+    __metadata("design:paramtypes", [Number, Number]),
     __metadata("design:returntype", void 0)
 ], UsersController.prototype, "getAllUsers", null);
 __decorate([

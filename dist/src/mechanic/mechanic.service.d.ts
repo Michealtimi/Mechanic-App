@@ -82,9 +82,9 @@ export declare class MechanicService {
         description: string | null;
         title: string;
         price: number;
+        mechanicId: string;
         estimatedTime: string | null;
         availability: string | null;
-        mechanicId: string;
     }>;
     getAllMechanicServices(mechanicId: string, callerId: string, callerRole: Role): Promise<{
         id: string;
@@ -93,9 +93,9 @@ export declare class MechanicService {
         description: string | null;
         title: string;
         price: number;
+        mechanicId: string;
         estimatedTime: string | null;
         availability: string | null;
-        mechanicId: string;
     }[]>;
     updateMechanicService(id: string, mechanicId: string, dto: UpdateServiceDto): Promise<{
         id: string;
@@ -104,9 +104,9 @@ export declare class MechanicService {
         description: string | null;
         title: string;
         price: number;
+        mechanicId: string;
         estimatedTime: string | null;
         availability: string | null;
-        mechanicId: string;
     }>;
     deleteMechanicService(id: string, mechanicId: string): Promise<{
         success: boolean;

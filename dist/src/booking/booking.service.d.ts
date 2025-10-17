@@ -1,6 +1,7 @@
 import { PrismaService } from 'prisma/prisma.service';
 import { CreateBookingDto } from './dto/creating-booking.dto';
 import { UpdateBookingStatusDto } from './dto/update-booking-status.dto';
+import { BookingFilterDto } from './dto/booking-filter.dto';
 export declare class BookingService {
     private readonly prisma;
     private readonly logger;
@@ -32,9 +33,9 @@ export declare class BookingService {
             description: string | null;
             title: string;
             price: number;
+            mechanicId: string;
             estimatedTime: string | null;
             availability: string | null;
-            mechanicId: string;
         };
         customer: {
             id: string;
@@ -61,39 +62,55 @@ export declare class BookingService {
         createdAt: Date;
         updatedAt: Date;
         scheduledAt: Date;
+        price: number;
+        paymentId: string | null;
+        paymentStatus: string;
         mechanicId: string;
         serviceId: string;
         customerId: string;
     }>;
-    getAllBookings(userId: string): Promise<({
-        mechanic: {
-            shopName: string | null;
-        };
-        service: {
+    getAllBookings(userId: string, filter: BookingFilterDto): Promise<{
+        data: ({
+            mechanic: {
+                id: string;
+                shopName: string | null;
+            };
+            service: {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                description: string | null;
+                title: string;
+                price: number;
+                mechanicId: string;
+                estimatedTime: string | null;
+                availability: string | null;
+            };
+            customer: {
+                id: string;
+                firstName: string | null;
+                lastName: string | null;
+            };
+        } & {
             id: string;
+            status: import(".prisma/client").$Enums.BookingStatus;
             createdAt: Date;
             updatedAt: Date;
-            description: string | null;
-            title: string;
+            scheduledAt: Date;
             price: number;
-            estimatedTime: string | null;
-            availability: string | null;
+            paymentId: string | null;
+            paymentStatus: string;
             mechanicId: string;
+            serviceId: string;
+            customerId: string;
+        })[];
+        meta: {
+            total: number;
+            skip: number;
+            take: number;
+            hasMore: boolean;
         };
-        customer: {
-            firstName: string | null;
-            lastName: string | null;
-        };
-    } & {
-        id: string;
-        status: import(".prisma/client").$Enums.BookingStatus;
-        createdAt: Date;
-        updatedAt: Date;
-        scheduledAt: Date;
-        mechanicId: string;
-        serviceId: string;
-        customerId: string;
-    })[]>;
+    }>;
     getBookingById(id: string, userId: string): Promise<{
         mechanic: {
             id: string;
@@ -121,9 +138,9 @@ export declare class BookingService {
             description: string | null;
             title: string;
             price: number;
+            mechanicId: string;
             estimatedTime: string | null;
             availability: string | null;
-            mechanicId: string;
         };
         customer: {
             id: string;
@@ -150,6 +167,9 @@ export declare class BookingService {
         createdAt: Date;
         updatedAt: Date;
         scheduledAt: Date;
+        price: number;
+        paymentId: string | null;
+        paymentStatus: string;
         mechanicId: string;
         serviceId: string;
         customerId: string;
@@ -160,6 +180,9 @@ export declare class BookingService {
         createdAt: Date;
         updatedAt: Date;
         scheduledAt: Date;
+        price: number;
+        paymentId: string | null;
+        paymentStatus: string;
         mechanicId: string;
         serviceId: string;
         customerId: string;
@@ -170,6 +193,9 @@ export declare class BookingService {
         createdAt: Date;
         updatedAt: Date;
         scheduledAt: Date;
+        price: number;
+        paymentId: string | null;
+        paymentStatus: string;
         mechanicId: string;
         serviceId: string;
         customerId: string;

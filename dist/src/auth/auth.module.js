@@ -17,6 +17,7 @@ const mail_service_1 = require("../utils/mail.service");
 const roles_guards_1 = require("../common/guard/roles.guards");
 const jwt_strategy_1 = require("./jwt.strategy");
 const prisma_service_1 = require("../../prisma/prisma.service");
+const config_1 = require("@nestjs/config");
 let AuthModule = class AuthModule {
 };
 exports.AuthModule = AuthModule;
@@ -24,7 +25,14 @@ exports.AuthModule = AuthModule = __decorate([
     (0, common_1.Module)({
         imports: [
             passport_1.PassportModule,
-            jwt_1.JwtModule.register({}),
+            jwt_1.JwtModule.registerAsync({
+                useFactory: async (configService) => ({
+                    secret: configService.get('JWT_SECRET'),
+                    signOptions: { expiresIn: '1d' },
+                }),
+                inject: [config_1.ConfigService],
+                global: true,
+            }),
         ],
         controllers: [auth_controller_1.AuthController],
         providers: [

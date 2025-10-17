@@ -21,31 +21,51 @@ let MechanicService = MechanicService_1 = class MechanicService {
         this.prisma = prisma;
     }
     async getMechanicProfile(id, callerRole) {
+        this.logger.log(`[getMechanicProfile] Starting fetch for ID: ${id}`);
         this.logger.log(`Attempting to get profile for mechanic ID: ${id}`);
-        if (callerRole !== client_1.Role.ADMIN && callerRole !== client_1.Role.SUPERADMIN && callerRole !== client_1.Role.MECHANIC) {
-            this.logger.warn(`Unauthorized access attempt by role: ${callerRole}`);
-            throw new common_1.ForbiddenException('You do not have permission to view this profile.');
+        try {
+            if (callerRole !== client_1.Role.ADMIN &&
+                callerRole !== client_1.Role.SUPERADMIN &&
+                callerRole !== client_1.Role.MECHANIC) {
+                this.logger.warn(`Unauthorized access attempt by role: ${callerRole}`);
+                throw new common_1.ForbiddenException('You do not have permission to view this profile.');
+            }
+            const mechanic = await this.prisma.user.findUnique({
+                where: { id, role: client_1.Role.MECHANIC },
+                include: {
+                    skills: true,
+                },
+            });
+            if (!mechanic) {
+                this.logger.warn(`Mechanic profile not found for ID: ${id}`);
+                throw new common_1.NotFoundException('Mechanic profile not found');
+            }
+            this.logger.log(`Successfully fetched profile for mechanic ID: ${id}`);
+            this.logger.log(`[getMechanicProfile] Successfully fetched profile for ID: ${id}`);
+            return mechanic;
         }
-        const mechanic = await this.prisma.user.findUnique({
-            where: { id, role: client_1.Role.MECHANIC },
-            include: {
-                skills: true,
-            },
-        });
-        if (!mechanic) {
-            this.logger.warn(`Mechanic profile not found for ID: ${id}`);
-            throw new common_1.NotFoundException('Mechanic profile not found');
+        catch (err) {
+            this.logger.error(`Failed to get mechanic profile for ID ${id}`, err.stack);
+            if (err instanceof common_1.NotFoundException || err instanceof common_1.ForbiddenException) {
+                throw err;
+            }
+            throw new common_1.InternalServerErrorException('Failed to retrieve mechanic profile');
         }
-        this.logger.log(`Successfully fetched profile for mechanic ID: ${id}`);
-        return mechanic;
     }
     async updateMechanicProfile(id, dto, callerId) {
+        this.logger.log(`[updateMechanicProfile] Starting update for ID: ${id}`);
         this.logger.log(`Update request for mechanic ID: ${id} by caller ID: ${callerId}`);
-        if (id !== callerId) {
-            this.logger.warn(`Forbidden update attempt on profile ID: ${id} by user ID: ${callerId}`);
-            throw new common_1.ForbiddenException('You can only update your own profile.');
-        }
         try {
+            if (id !== callerId) {
+                this.logger.warn(`Forbidden update attempt on profile ID: ${id} by user ID: ${callerId}`);
+                throw new common_1.ForbiddenException('You can only update your own profile.');
+            }
+            const existingMechanic = await this.prisma.user.findUnique({
+                where: { id, role: client_1.Role.MECHANIC },
+            });
+            if (!existingMechanic) {
+                throw new common_1.NotFoundException('Mechanic profile not found.');
+            }
             const updateData = {};
             if (dto.firstName)
                 updateData.firstName = dto.firstName;
@@ -65,49 +85,73 @@ let MechanicService = MechanicService_1 = class MechanicService {
                     where: { name: { in: skillNames } },
                 });
                 const skillsToCreateNames = skillNames.filter((name) => !existingSkills.some((s) => s.name === name));
+                this.logger.log(`[updateMechanicProfile] Skills to create: ${skillsToCreateNames.length}`);
                 const createdSkills = await this.prisma.$transaction(skillsToCreateNames.map((name) => this.prisma.skill.create({ data: { name } })));
                 const allSkills = [...existingSkills, ...createdSkills];
                 updateData.skills = {
                     set: allSkills.map((s) => ({ id: s.id })),
                 };
             }
+            this.logger.log(`[updateMechanicProfile] Final update data for ID: ${id}`);
             const mechanic = await this.prisma.user.update({
                 where: { id, role: client_1.Role.MECHANIC },
                 data: updateData,
-                include: { skills: true }
+                include: { skills: true },
             });
             this.logger.log(`Successfully updated profile for mechanic ID: ${id}`);
+            this.logger.log(`[updateMechanicProfile] Update successful for ID: ${id}`);
             return mechanic;
         }
-        catch (error) {
-            this.logger.error(`Failed to update mechanic profile for ID: ${id}. Error: ${error.message}`);
-            throw new common_1.BadRequestException(error.message || 'Failed to update mechanic profile');
+        catch (err) {
+            this.logger.error(`Failed to update mechanic profile for ID: ${id}`, err.stack);
+            if (err instanceof common_1.ForbiddenException || err instanceof common_1.NotFoundException) {
+                throw err;
+            }
+            throw new common_1.InternalServerErrorException('Failed to update mechanic profile');
         }
     }
     async uploadProfilePicture(id, filename, callerId) {
+        this.logger.log(`[uploadProfilePicture] Attempting upload for user ID: ${id}`);
         this.logger.log(`Upload profile picture request for user ID: ${id}`);
-        if (id !== callerId) {
-            throw new common_1.ForbiddenException('You can only update your own profile.');
-        }
         try {
+            if (id !== callerId) {
+                throw new common_1.ForbiddenException('You can only update your own profile.');
+            }
+            const existing = await this.prisma.user.findUnique({
+                where: { id, role: client_1.Role.MECHANIC },
+            });
+            if (!existing) {
+                throw new common_1.NotFoundException('Mechanic profile not found.');
+            }
             const updatedUser = await this.prisma.user.update({
                 where: { id, role: client_1.Role.MECHANIC },
                 data: { profilePictureUrl: filename },
             });
             this.logger.log(`Profile picture uploaded for user ID: ${id}`);
+            this.logger.log(`[uploadProfilePicture] Filename ${filename} uploaded for user ID: ${id}`);
             return updatedUser;
         }
-        catch (error) {
-            this.logger.error(`Failed to upload profile picture for user ID: ${id}. Error: ${error.message}`);
-            throw new common_1.InternalServerErrorException(error.message || 'Failed to upload profile picture');
+        catch (err) {
+            this.logger.error(`Failed to upload profile picture for user ID: ${id}`, err.stack);
+            if (err instanceof common_1.ForbiddenException || err instanceof common_1.NotFoundException) {
+                throw err;
+            }
+            throw new common_1.InternalServerErrorException('Failed to upload profile picture');
         }
     }
     async saveCertification(id, filename, callerId) {
+        this.logger.log(`[saveCertification] Attempting save for user ID: ${id}`);
         this.logger.log(`Save certification request for user ID: ${id}`);
-        if (id !== callerId) {
-            throw new common_1.ForbiddenException('You can only update your own profile.');
-        }
         try {
+            if (id !== callerId) {
+                throw new common_1.ForbiddenException('You can only update your own profile.');
+            }
+            const existing = await this.prisma.user.findUnique({
+                where: { id },
+            });
+            if (!existing) {
+                throw new common_1.NotFoundException('User not found.');
+            }
             const updated = await this.prisma.user.update({
                 where: { id },
                 data: {
@@ -115,19 +159,30 @@ let MechanicService = MechanicService_1 = class MechanicService {
                 },
             });
             this.logger.log(`Certification saved for user ID: ${id}`);
+            this.logger.log(`[saveCertification] Certification ${filename} saved for user ID: ${id}`);
             return updated.certificationUrls;
         }
-        catch (error) {
-            this.logger.error(`Failed to save certification for user ID: ${id}. Error: ${error.message}`);
-            throw new common_1.InternalServerErrorException(error.message || 'Failed to save certification');
+        catch (err) {
+            this.logger.error(`Failed to save certification for user ID: ${id}`, err.stack);
+            if (err instanceof common_1.ForbiddenException || err instanceof common_1.NotFoundException) {
+                throw err;
+            }
+            throw new common_1.InternalServerErrorException('Failed to save certification');
         }
     }
     async createService(mechanicId, dto, callerId) {
+        this.logger.log(`[createService] Starting service creation for mechanic ID: ${mechanicId}`);
         this.logger.log(`Create service request for mechanic ID: ${mechanicId}`);
-        if (mechanicId !== callerId) {
-            throw new common_1.ForbiddenException('You can only create services for your own account.');
-        }
         try {
+            if (mechanicId !== callerId) {
+                throw new common_1.ForbiddenException('You can only create services for your own account.');
+            }
+            const mechanic = await this.prisma.user.findUnique({
+                where: { id: mechanicId, role: client_1.Role.MECHANIC },
+            });
+            if (!mechanic) {
+                throw new common_1.NotFoundException('Mechanic account not found.');
+            }
             const service = await this.prisma.mechanicService.create({
                 data: {
                     ...dto,
@@ -135,57 +190,100 @@ let MechanicService = MechanicService_1 = class MechanicService {
                 },
             });
             this.logger.log(`Service created successfully for mechanic ID: ${mechanicId}`);
+            this.logger.log(`[createService] New service ID: ${service.id} created.`);
             return service;
         }
-        catch (error) {
-            this.logger.error(`Failed to create service for mechanic ID: ${mechanicId}. Error: ${error.message}`);
-            throw new common_1.InternalServerErrorException(error.message || 'Failed to create service');
+        catch (err) {
+            this.logger.error(`Failed to create service for mechanic ID: ${mechanicId}`, err.stack);
+            if (err instanceof common_1.ForbiddenException || err instanceof common_1.NotFoundException) {
+                throw err;
+            }
+            throw new common_1.InternalServerErrorException('Failed to create service');
         }
     }
     async getAllMechanicServices(mechanicId, callerId, callerRole) {
+        this.logger.log(`[getAllMechanicServices] Starting fetch for mechanic ID: ${mechanicId}`);
         this.logger.log(`Get all services request for mechanic ID: ${mechanicId}`);
-        const isSelfOrAdmin = mechanicId === callerId || callerRole === client_1.Role.ADMIN || callerRole === client_1.Role.SUPERADMIN;
-        if (!isSelfOrAdmin) {
-            throw new common_1.ForbiddenException('You are not authorized to view these services.');
+        try {
+            const isSelfOrAdmin = mechanicId === callerId ||
+                callerRole === client_1.Role.ADMIN ||
+                callerRole === client_1.Role.SUPERADMIN;
+            if (!isSelfOrAdmin) {
+                throw new common_1.ForbiddenException('You are not authorized to view these services.');
+            }
+            const services = await this.prisma.mechanicService.findMany({
+                where: { mechanicId },
+            });
+            this.logger.log(`Found ${services.length} services for mechanic ID: ${mechanicId}`);
+            this.logger.log(`[getAllMechanicServices] Found ${services.length} services.`);
+            return services;
         }
-        const services = await this.prisma.mechanicService.findMany({
-            where: { mechanicId },
-        });
-        return services;
+        catch (err) {
+            this.logger.error(`Failed to get all services for mechanic ID: ${mechanicId}`, err.stack);
+            if (err instanceof common_1.ForbiddenException) {
+                throw err;
+            }
+            throw new common_1.InternalServerErrorException('Failed to retrieve services');
+        }
     }
     async updateMechanicService(id, mechanicId, dto) {
+        this.logger.log(`[updateMechanicService] Starting update for service ID: ${id} by mechanic: ${mechanicId}`);
         this.logger.log(`Update service request for service ID: ${id}`);
-        const service = await this.prisma.mechanicService.findUnique({
-            where: { id },
-        });
-        if (!service) {
-            throw new common_1.NotFoundException('Service not found');
+        try {
+            const service = await this.prisma.mechanicService.findUnique({
+                where: { id },
+            });
+            if (!service) {
+                throw new common_1.NotFoundException('Service not found');
+            }
+            if (service.mechanicId !== mechanicId) {
+                throw new common_1.ForbiddenException('You are not authorized to update this service.');
+            }
+            const updated = await this.prisma.mechanicService.update({
+                where: { id },
+                data: dto,
+            });
+            this.logger.log(`Service updated successfully for service ID: ${id}`);
+            this.logger.log(`[updateMechanicService] Service ID: ${id} updated.`);
+            return updated;
         }
-        if (service.mechanicId !== mechanicId) {
-            throw new common_1.ForbiddenException('You are not authorized to update this service.');
+        catch (err) {
+            this.logger.error(`Failed to update service ID: ${id}`, err.stack);
+            if (err instanceof common_1.NotFoundException || err instanceof common_1.ForbiddenException) {
+                throw err;
+            }
+            throw new common_1.InternalServerErrorException('Failed to update service');
         }
-        const updated = await this.prisma.mechanicService.update({
-            where: { id },
-            data: dto,
-        });
-        this.logger.log(`Service updated successfully for service ID: ${id}`);
-        return updated;
     }
     async deleteMechanicService(id, mechanicId) {
+        this.logger.log(`[deleteMechanicService] Starting delete for service ID: ${id} by mechanic: ${mechanicId}`);
         this.logger.log(`Delete service request for service ID: ${id}`);
-        const service = await this.prisma.mechanicService.findUnique({
-            where: { id },
-        });
-        if (!service || service.mechanicId !== mechanicId) {
-            throw new common_1.ForbiddenException('You are not authorized to delete this service');
+        try {
+            const service = await this.prisma.mechanicService.findUnique({
+                where: { id },
+            });
+            if (!service || service.mechanicId !== mechanicId) {
+                if (!service) {
+                    throw new common_1.NotFoundException('Service not found');
+                }
+                throw new common_1.ForbiddenException('You are not authorized to delete this service');
+            }
+            await this.prisma.mechanicService.delete({ where: { id } });
+            this.logger.log(`Service deleted successfully for service ID: ${id}`);
+            this.logger.log(`[deleteMechanicService] Service ID: ${id} deleted.`);
+            return {
+                success: true,
+                message: 'Service deleted successfully',
+                data: null,
+            };
         }
-        await this.prisma.mechanicService.delete({ where: { id } });
-        this.logger.log(`Service deleted successfully for service ID: ${id}`);
-        return {
-            success: true,
-            message: 'Service deleted successfully',
-            data: null,
-        };
+        catch (err) {
+            this.logger.error(`Failed to delete service ID: ${id}`, err.stack);
+            if (err instanceof common_1.NotFoundException || err instanceof common_1.ForbiddenException) {
+                throw err;
+            }
+            throw new common_1.InternalServerErrorException('Failed to delete service');
+        }
     }
 };
 exports.MechanicService = MechanicService;
