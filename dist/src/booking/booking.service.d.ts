@@ -4,8 +4,11 @@ import { UpdateBookingStatusDto } from './dto/update-booking-status.dto';
 import { BookingFilterDto } from './dto/booking-filter.dto';
 export declare class BookingService {
     private readonly prisma;
+    private readonly paymentService;
+    private readonly walletService;
+    private readonly notificationGateway;
     private readonly logger;
-    constructor(prisma: PrismaService);
+    constructor(prisma: PrismaService, paymentService: PaymentService, walletService: WalletService, notificationGateway: NotificationGateway);
     createBooking(dto: CreateBookingDto, customerId: string): Promise<{
         mechanic: {
             id: string;

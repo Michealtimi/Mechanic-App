@@ -9,6 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var BookingService_1;
+var _a, _b, _c;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BookingService = void 0;
 const common_1 = require("@nestjs/common");
@@ -16,9 +17,15 @@ const prisma_service_1 = require("../../prisma/prisma.service");
 const client_1 = require("@prisma/client");
 let BookingService = BookingService_1 = class BookingService {
     prisma;
+    paymentService;
+    walletService;
+    notificationGateway;
     logger = new common_1.Logger(BookingService_1.name);
-    constructor(prisma) {
+    constructor(prisma, paymentService, walletService, notificationGateway) {
         this.prisma = prisma;
+        this.paymentService = paymentService;
+        this.walletService = walletService;
+        this.notificationGateway = notificationGateway;
     }
     async createBooking(dto, customerId) {
         console.log(`[createBooking] Starting creation for customer: ${customerId}`);
@@ -164,6 +171,13 @@ let BookingService = BookingService_1 = class BookingService {
         try {
             const booking = await this.prisma.booking.findUnique({
                 where: { id },
+                select: {
+                    id: true,
+                    mechanicId: true,
+                    customerId: true,
+                    price: true,
+                    status: true,
+                },
             });
             if (!booking) {
                 this.logger.warn(`[updateBookingStatus] Booking with ID ${id} not found.`);
@@ -177,16 +191,23 @@ let BookingService = BookingService_1 = class BookingService {
                 where: { id },
                 data: { status: dto.status },
             });
+            if (dto.status === client_1.BookingStatus.COMPLETED) {
+                this.logger.log(`[updateBookingStatus] Booking ${id} completed. Initiating payment and notification.`);
+                await this.paymentService.capturePayment(booking.id);
+                await this.walletService.creditMechanic(booking.mechanicId, booking.price, booking.id);
+                await this.notificationGateway.emitBookingCompleted(booking.customerId, booking.id);
+                this.logger.log(`[updateBookingStatus] Post-completion actions successful for booking ${id}.`);
+            }
             this.logger.log(`[updateBookingStatus] Successfully updated booking ${id}`);
             console.log(`[updateBookingStatus] Booking ${id} updated to ${updatedBooking.status}`);
             return updatedBooking;
         }
         catch (err) {
-            this.logger.error(`Failed to update booking status for ID ${id}`, err.stack);
+            this.logger.error(`Failed to update booking status for ID ${id}. Error: ${err.message}`, err.stack);
             if (err instanceof common_1.NotFoundException || err instanceof common_1.ForbiddenException) {
                 throw err;
             }
-            throw new common_1.InternalServerErrorException('Failed to update booking status');
+            throw new common_1.InternalServerErrorException('Failed to update booking status or complete post-update actions.');
         }
     }
     async cancelBooking(id, customerId) {
@@ -195,6 +216,13 @@ let BookingService = BookingService_1 = class BookingService {
         try {
             const booking = await this.prisma.booking.findUnique({
                 where: { id },
+                select: {
+                    id: true,
+                    customerId: true,
+                    mechanicId: true,
+                    price: true,
+                    paymentStatus: true,
+                },
             });
             if (!booking) {
                 this.logger.warn(`[cancelBooking] Booking with ID ${id} not found.`);
@@ -204,26 +232,35 @@ let BookingService = BookingService_1 = class BookingService {
                 this.logger.error(`[cancelBooking] Forbidden: Customer ${customerId} cannot cancel booking ${id}`);
                 throw new common_1.ForbiddenException('You cannot cancel this booking');
             }
+            const CANCEL_FEE_PERCENTAGE = 0.1;
+            if (booking.paymentStatus === 'AUTHORIZED') {
+                const cancelFeeAmount = booking.price * CANCEL_FEE_PERCENTAGE;
+                const refundAmount = booking.price - cancelFeeAmount;
+                this.logger.log(`[cancelBooking] Processing partial refund of ${refundAmount} (Fee: ${cancelFeeAmount}) for booking ${booking.id}.`);
+                await this.paymentService.partialRefund(booking.id, refundAmount);
+            }
             const updatedBooking = await this.prisma.booking.update({
                 where: { id },
                 data: { status: client_1.BookingStatus.CANCELLED },
             });
+            await this.notificationGateway.emitBookingCancelled(booking.mechanicId, booking.id);
+            this.logger.log(`[cancelBooking] Mechanic ${booking.mechanicId} notified of cancellation.`);
             this.logger.log(`[cancelBooking] Successfully cancelled booking ${id}`);
             console.log(`[cancelBooking] Booking ${id} successfully CANCELLED.`);
             return updatedBooking;
         }
         catch (err) {
-            this.logger.error(`Failed to cancel booking ID ${id}`, err.stack);
+            this.logger.error(`Failed to cancel booking ID ${id}. Error: ${err.message}`, err.stack);
             if (err instanceof common_1.NotFoundException || err instanceof common_1.ForbiddenException) {
                 throw err;
             }
-            throw new common_1.InternalServerErrorException('Failed to cancel booking');
+            throw new common_1.InternalServerErrorException('Failed to cancel booking or process refund.');
         }
     }
 };
 exports.BookingService = BookingService;
 exports.BookingService = BookingService = BookingService_1 = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService, typeof (_a = typeof PaymentService !== "undefined" && PaymentService) === "function" ? _a : Object, typeof (_b = typeof WalletService !== "undefined" && WalletService) === "function" ? _b : Object, typeof (_c = typeof NotificationGateway !== "undefined" && NotificationGateway) === "function" ? _c : Object])
 ], BookingService);
 //# sourceMappingURL=booking.service.js.map

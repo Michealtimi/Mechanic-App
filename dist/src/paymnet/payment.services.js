@@ -8,83 +8,79 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var PaymentService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PaymentService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../../prisma/prisma.service");
-const axios_1 = require("axios");
-const class_transformer_1 = require("class-transformer");
-const createPayment_dto_1 = require("./dto/createPayment.dto");
-let PaymentService = class PaymentService {
+const paystack_gateway_1 = require("./gateways/paystack.gateway");
+let PaymentService = PaymentService_1 = class PaymentService {
     prisma;
-    PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY;
+    logger = new common_1.Logger(PaymentService_1.name);
+    gateway;
     constructor(prisma) {
         this.prisma = prisma;
+        this.gateway = new paystack_gateway_1.PaystackGateway(process.env.PAYSTACK_SECRET_KEY, process.env.PAYSTACK_BASE_URL);
     }
-    async initiatePayment(dto, customerEmail) {
+    async initiatePaymentForBooking(bookingId, amountKobo, metadata) {
         try {
-            const booking = await this.prisma.booking.findUnique({
-                where: { id: dto.bookingId },
-            });
-            if (!booking)
-                throw new common_1.NotFoundException('Booking not found');
-            const reference = `PS_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-            await this.prisma.payment.create({
+            const payment = await this.prisma.payment.create({
                 data: {
-                    bookingId: dto.bookingId,
-                    amount: dto.amount,
-                    reference,
+                    bookingId,
+                    reference: `tmp-${Date.now()}`,
+                    gateway: 'PAYSTACK',
+                    amount: amountKobo,
+                    status: 'INITIATED',
                 },
             });
-            const response = await axios_1.default.post('https://api.paystack.co/transaction/initialize', {
-                email: customerEmail,
-                amount: dto.amount * 100,
-                reference,
-            }, {
-                headers: {
-                    Authorization: `Bearer ${this.PAYSTACK_SECRET}`,
-                },
+            const { reference, checkoutUrl } = await this.gateway.createCharge(amountKobo, 'NGN', { bookingId, ...metadata });
+            const updated = await this.prisma.payment.update({
+                where: { id: payment.id },
+                data: { reference },
             });
-            return (0, class_transformer_1.plainToInstance)(createPayment_dto_1.PaymentResponseDto, {
-                success: true,
-                message: 'Payment initiated',
-                data: response.data.data,
-            });
+            return { payment: updated, checkoutUrl };
         }
-        catch (error) {
-            throw new common_1.InternalServerErrorException(error.response?.data || 'Payment initiation failed');
+        catch (err) {
+            this.logger.error('initiatePaymentForBooking error', err);
+            throw new common_1.InternalServerErrorException('Failed to initiate payment');
         }
     }
     async verifyPayment(reference) {
         try {
-            const response = await axios_1.default.get(`https://api.paystack.co/transaction/verify/${reference}`, {
-                headers: {
-                    Authorization: `Bearer ${this.PAYSTACK_SECRET}`,
-                },
-            });
-            const payment = await this.prisma.payment.update({
-                where: { reference },
-                data: { status: response.data.data.status.toUpperCase() },
-            });
-            if (payment.status === 'SUCCESS') {
-                await this.prisma.booking.update({
-                    where: { id: payment.bookingId },
-                    data: { status: 'CONFIRMED' },
+            const gatewayResult = await this.gateway.verifyPayment(reference);
+            const payment = await this.prisma.payment.findUnique({ where: { reference } });
+            if (!payment)
+                throw new Error('Payment record not found');
+            if (gatewayResult.success) {
+                await this.prisma.payment.update({ where: { reference }, data: { status: 'SUCCESS', paidAt: new Date() } });
+                await this.prisma.escrow.create({
+                    data: {
+                        bookingId: payment.bookingId,
+                        amount: payment.amount,
+                        status: 'HELD',
+                    },
                 });
             }
-            return {
-                success: true,
-                message: 'Payment verified',
-                data: payment,
-            };
+            else {
+                await this.prisma.payment.update({ where: { reference }, data: { status: 'FAILED' } });
+            }
+            return gatewayResult;
         }
-        catch (error) {
-            throw new common_1.InternalServerErrorException(error.response?.data || 'Payment verification failed');
+        catch (err) {
+            this.logger.error('verifyPayment error', err);
+            throw new common_1.InternalServerErrorException('Failed to verify payment');
         }
+    }
+    async partialRefund(reference, amount) {
+        if (!this.gateway.partialRefund)
+            throw new Error('Partial refund not supported by gateway');
+        return this.gateway.partialRefund(reference, amount);
+    }
+    async capturePayment(paymentId) {
     }
 };
 exports.PaymentService = PaymentService;
-exports.PaymentService = PaymentService = __decorate([
+exports.PaymentService = PaymentService = PaymentService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService])
 ], PaymentService);

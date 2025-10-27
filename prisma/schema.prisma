@@ -65,24 +65,46 @@ model Booking {
   customer      User            @relation("CustomerBookings", fields: [customerId], references: [id])
   mechanic      User            @relation("MechanicBookings", fields: [mechanicId], references: [id])
   service       MechanicService @relation(fields: [serviceId], references: [id])
-  payment       Payment?
+  payment       Payment?        @relation(fields: [paymentId], references: [id])
   price         Float
   paymentId     String? // Paystack/Stripe reference
   paymentStatus String          @default("PENDING")
 }
 
 model Payment {
-  id        String    @id @default(uuid())
-  bookingId String    @unique
-  booking   Booking   @relation(fields: [bookingId], references: [id])
-  amount    Int
-  reference String    @unique
-  status    String    @default("PENDING") // PENDING, SUCCESS, FAILED
-  method    String    @default("PAYSTACK")
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  currency  String    @default("NGN")
-  paidAt    DateTime?
+  id          String   @id @default(uuid())
+  bookingId   String   @unique
+  reference   String   @unique
+  amount      Int
+  currency    String   @default("NGN")
+  status      String   @default("PENDING") // PENDING | SUCCESS | FAILED
+  gateway     String
+  rawResponse Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  Booking Booking[]
+}
+
+model Wallet {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  balance   Int      @default(0)
+  pending   Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Dispute {
+  id          String   @id @default(uuid())
+  bookingId   String
+  raisedBy    String
+  reason      String
+  evidenceUrl String?
+  status      String   @default("OPEN") // OPEN | RESOLVED | ESCALATED
+  resolution  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 /**

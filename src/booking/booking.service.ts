@@ -18,7 +18,12 @@ import { BookingFilterDto } from './dto/booking-filter.dto';
 export class BookingService {
   private readonly logger = new Logger(BookingService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly paymentService: PaymentService, // 👈 New dependency
+    private readonly walletService: WalletService,   // 👈 New dependency
+    private readonly notificationGateway: NotificationGateway,
+  ) {}
 
   /**
    * =============================
@@ -228,45 +233,79 @@ export class BookingService {
    * =============================
    * Updates the status of a booking.
    */
-  async updateBookingStatus(id: string, dto: UpdateBookingStatusDto, mechanicId: string) {
+  // src/booking/booking.service.ts
+async updateBookingStatus(id: string, dto: UpdateBookingStatusDto, mechanicId: string) {
     // 💡 CONSOLE LOG: Start of operation
     console.log(`[updateBookingStatus] Attempting to update booking ${id} status to ${dto.status}`);
     this.logger.log(`[updateBookingStatus] Updating booking ${id} to status ${dto.status} by mechanic ${mechanicId}`);
 
     try {
-      const booking = await this.prisma.booking.findUnique({
-        where: { id },
-      });
-      if (!booking) {
-        this.logger.warn(`[updateBookingStatus] Booking with ID ${id} not found.`);
-        throw new NotFoundException('Booking not found');
-      }
+        // 1. Find the booking, including the fields needed for subsequent actions (price, customerId)
+        const booking = await this.prisma.booking.findUnique({
+            where: { id },
+            // Select only the fields needed for the logic/updates/payments
+            select: {
+                id: true,
+                mechanicId: true,
+                customerId: true,
+                price: true, // Assuming 'price' is a field on the Booking model
+                status: true,
+            },
+        });
 
-      // Authorization: Only the mechanic can update the status of their bookings
-      if (booking.mechanicId !== mechanicId) {
-        this.logger.error(`[updateBookingStatus] Forbidden: Mechanic ${mechanicId} cannot update booking ${id}`);
-        throw new ForbiddenException('You cannot update this booking');
-      }
+        if (!booking) {
+            this.logger.warn(`[updateBookingStatus] Booking with ID ${id} not found.`);
+            throw new NotFoundException('Booking not found');
+        }
 
-      const updatedBooking = await this.prisma.booking.update({
-        where: { id },
-        data: { status: dto.status },
-      });
+        // 2. Authorization: Only the mechanic can update the status of their bookings
+        if (booking.mechanicId !== mechanicId) {
+            this.logger.error(`[updateBookingStatus] Forbidden: Mechanic ${mechanicId} cannot update booking ${id}`);
+            throw new ForbiddenException('You cannot update this booking');
+        }
 
-      this.logger.log(`[updateBookingStatus] Successfully updated booking ${id}`);
-      // 💡 CONSOLE LOG: Success
-      console.log(`[updateBookingStatus] Booking ${id} updated to ${updatedBooking.status}`);
+        // 3. Update the booking status in the database
+        const updatedBooking = await this.prisma.booking.update({
+            where: { id },
+            data: { status: dto.status },
+        });
 
-      return updatedBooking;
+        // 4. Conditional Business Logic: Execute payment/wallet/notification only if status is COMPLETED
+        if (dto.status === BookingStatus.COMPLETED) {
+            // NOTE: These are crucial operations and should ideally be wrapped in a transaction 
+            // or handled via an event bus for robustness/retries, but for a direct refactor:
+            
+            this.logger.log(`[updateBookingStatus] Booking ${id} completed. Initiating payment and notification.`);
+            
+            // Assuming 'booking.id' is the payment ID, 'booking.price' is the amount, etc.
+            // These calls rely on the injected services: paymentService, walletService, notificationGateway
+            await this.paymentService.capturePayment(booking.id);
+            await this.walletService.creditMechanic(booking.mechanicId, booking.price, booking.id);
+            await this.notificationGateway.emitBookingCompleted(booking.customerId, booking.id);
+
+            this.logger.log(`[updateBookingStatus] Post-completion actions successful for booking ${id}.`);
+        }
+
+        this.logger.log(`[updateBookingStatus] Successfully updated booking ${id}`);
+        // 💡 CONSOLE LOG: Success
+        console.log(`[updateBookingStatus] Booking ${id} updated to ${updatedBooking.status}`);
+
+        return updatedBooking;
     } catch (err) {
-      this.logger.error(`Failed to update booking status for ID ${id}`, err.stack);
-      // Re-throw specific client errors
-      if (err instanceof NotFoundException || err instanceof ForbiddenException) {
-        throw err;
-      }
-      throw new InternalServerErrorException('Failed to update booking status');
+        this.logger.error(`Failed to update booking status for ID ${id}. Error: ${err.message}`, err.stack);
+        
+        // Re-throw specific client errors (NotFound or Forbidden are generally safe)
+        if (err instanceof NotFoundException || err instanceof ForbiddenException) {
+            throw err;
+        }
+
+        // If payment/wallet/notification fails, it may throw a specific error, 
+        // but we catch it here and treat it as a server issue for now.
+        // It's often better to try/catch the conditional logic separately 
+        // to return more specific error messages if, e.g., payment fails.
+        throw new InternalServerErrorException('Failed to update booking status or complete post-update actions.');
     }
-  }
+}
 
   // -------------------------------------------------------------
 
@@ -276,43 +315,91 @@ export class BookingService {
    * =============================
    * Cancels a booking.
    */
-  async cancelBooking(id: string, customerId: string) {
+ // src/booking/booking.service.ts (Refactored method)
+
+// Assuming your service has injected these dependencies:
+// constructor(
+//     private readonly prisma: PrismaService,
+//     private readonly paymentService: PaymentService,
+//     private readonly notificationGateway: NotificationGateway,
+// ) {}
+
+// Note: I've added a placeholder for cancelFeeAmount logic.
+ // Example: 10% fee
+
+async cancelBooking(id: string, customerId: string) {
     // 💡 CONSOLE LOG: Start of operation
     console.log(`[cancelBooking] Attempting to cancel booking ${id} by customer ${customerId}`);
     this.logger.log(`[cancelBooking] Cancelling booking ${id} by customer ${customerId}`);
 
     try {
-      const booking = await this.prisma.booking.findUnique({
-        where: { id },
-      });
-      if (!booking) {
-        this.logger.warn(`[cancelBooking] Booking with ID ${id} not found.`);
-        throw new NotFoundException('Booking not found');
-      }
+        // 1. Find the booking, including the fields needed for authorization, refund, and notification
+        const booking = await this.prisma.booking.findUnique({
+            where: { id },
+            select: {
+                id: true,
+                customerId: true,
+                mechanicId: true, // Needed for notification
+                price: true, // Assuming 'price' exists and is needed for fee calculation
+                paymentStatus: true, // Needed for conditional refund logic (assumed field)
+            },
+        });
+        
+        if (!booking) {
+            this.logger.warn(`[cancelBooking] Booking with ID ${id} not found.`);
+            throw new NotFoundException('Booking not found');
+        }
 
-      // Authorization: Only the customer can cancel their own booking
-      if (booking.customerId !== customerId) {
-        this.logger.error(`[cancelBooking] Forbidden: Customer ${customerId} cannot cancel booking ${id}`);
-        throw new ForbiddenException('You cannot cancel this booking');
-      }
+        // 2. Authorization: Only the customer can cancel their own booking
+        if (booking.customerId !== customerId) {
+            this.logger.error(`[cancelBooking] Forbidden: Customer ${customerId} cannot cancel booking ${id}`);
+            throw new ForbiddenException('You cannot cancel this booking');
+        }
 
-      const updatedBooking = await this.prisma.booking.update({
-        where: { id },
-        data: { status: BookingStatus.CANCELLED },
-      });
+        const CANCEL_FEE_PERCENTAGE = 0.1;
+        
+        // 3. Conditional Business Logic (Refund)
+        if (booking.paymentStatus === 'AUTHORIZED') {
+            // Calculate the amount to refund (Total Price - Cancellation Fee)
+            // Example calculation: refund 90%
+            const cancelFeeAmount = booking.price * CANCEL_FEE_PERCENTAGE;
+            const refundAmount = booking.price - cancelFeeAmount;
+            
+            this.logger.log(`[cancelBooking] Processing partial refund of ${refundAmount} (Fee: ${cancelFeeAmount}) for booking ${booking.id}.`);
+            
+            // Assuming partialRefund takes the booking ID and the amount to refund
+            await this.paymentService.partialRefund(booking.id, refundAmount); 
+            
+            // You might want to update the booking with a 'refundStatus' field here
+        }
 
-      this.logger.log(`[cancelBooking] Successfully cancelled booking ${id}`);
-      // 💡 CONSOLE LOG: Success
-      console.log(`[cancelBooking] Booking ${id} successfully CANCELLED.`);
+        // 4. Update the booking status in the database
+        const updatedBooking = await this.prisma.booking.update({
+            where: { id },
+            data: { status: BookingStatus.CANCELLED },
+        });
+        
+        // 5. Notification
+        // Notify the mechanic that their booking has been cancelled
+        await this.notificationGateway.emitBookingCancelled(booking.mechanicId, booking.id);
+        this.logger.log(`[cancelBooking] Mechanic ${booking.mechanicId} notified of cancellation.`);
 
-      return updatedBooking;
+
+        this.logger.log(`[cancelBooking] Successfully cancelled booking ${id}`);
+        // 💡 CONSOLE LOG: Success
+        console.log(`[cancelBooking] Booking ${id} successfully CANCELLED.`);
+
+        return updatedBooking;
     } catch (err) {
-      this.logger.error(`Failed to cancel booking ID ${id}`, err.stack);
-      // Re-throw specific client errors
-      if (err instanceof NotFoundException || err instanceof ForbiddenException) {
-        throw err;
-      }
-      throw new InternalServerErrorException('Failed to cancel booking');
+        this.logger.error(`Failed to cancel booking ID ${id}. Error: ${err.message}`, err.stack);
+        
+        // Re-throw specific client errors
+        if (err instanceof NotFoundException || err instanceof ForbiddenException) {
+            throw err;
+        }
+        
+        // This InternalServerErrorException now covers both database issues AND payment/notification failures.
+        throw new InternalServerErrorException('Failed to cancel booking or process refund.');
     }
-  }
+}
 }

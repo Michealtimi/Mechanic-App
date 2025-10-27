@@ -1,22 +1,25 @@
 import { PrismaService } from 'prisma/prisma.service';
-import { CreatePaymentDto, PaymentResponseDto } from './dto/createPayment.dto';
 export declare class PaymentService {
-    private readonly prisma;
-    private PAYSTACK_SECRET;
+    private prisma;
+    private readonly logger;
+    private gateway;
     constructor(prisma: PrismaService);
-    initiatePayment(dto: CreatePaymentDto, customerEmail: string): Promise<PaymentResponseDto>;
-    verifyPayment(reference: string): Promise<{
-        success: boolean;
-        message: string;
-        data: {
+    initiatePaymentForBooking(bookingId: string, amountKobo: number, metadata: any): Promise<{
+        payment: {
             id: string;
             status: string;
             createdAt: Date;
             updatedAt: Date;
-            bookingId: string;
             amount: number;
             reference: string;
             method: string;
+            currency: string;
+            paidAt: Date | null;
+            bookingId: string;
         };
+        checkoutUrl: any;
     }>;
+    verifyPayment(reference: string): Promise<any>;
+    partialRefund(reference: string, amount: number): Promise<any>;
+    capturePayment(paymentId: string): Promise<void>;
 }
