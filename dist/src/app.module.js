@@ -14,6 +14,8 @@ const users_module_1 = require("./users/users.module");
 const mechanic_module_1 = require("./mechanic/mechanic.module");
 const booking_module_1 = require("./booking/booking.module");
 const mail_service_1 = require("./utils/mail.service");
+const dispute_module_1 = require("./dispute/dispute.module");
+const payment_module_1 = require("./paymnet/payment.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -27,6 +29,8 @@ exports.AppModule = AppModule = __decorate([
             users_module_1.UsersModule,
             mechanic_module_1.MechanicModule,
             booking_module_1.BookingModule,
+            payment_module_1.PaymentModule,
+            dispute_module_1.DisputeModule,
         ],
         providers: [mail_service_1.MailService],
         exports: [mail_service_1.MailService],

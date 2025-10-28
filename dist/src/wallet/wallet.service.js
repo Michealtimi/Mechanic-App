@@ -25,52 +25,70 @@ let WalletService = WalletService_1 = class WalletService {
             return existing;
         return this.prisma.wallet.create({ data: { userId, balance: 0, pending: 0 } });
     }
-    async creditMechanic(mechanicId, amount, bookingId, metadata) {
-        try {
-            const wallet = await this.ensureWallet(mechanicId);
-            const newBalance = wallet.balance + amount;
-            const tx = await this.prisma.$transaction([
-                this.prisma.wallet.update({ where: { id: wallet.id }, data: { balance: newBalance } }),
-                this.prisma.walletTransaction.create({
-                    data: {
-                        walletId: wallet.id,
-                        bookingId,
-                        type: 'CREDIT',
-                        amount,
-                        balanceAfter: newBalance,
-                        metadata,
-                    },
-                }),
-            ]);
-            return tx[0];
-        }
-        catch (err) {
-            this.logger.error('creditMechanic error', err);
-            throw new common_1.InternalServerErrorException('Failed to credit mechanic');
-        }
-    }
-    async debitWallet(userId, amount, type = 'DEBIT', bookingId) {
+    async creditWallet(userId, amount, type = 'CREDIT', bookingId, metadata) {
+        const operation = `Credit user ${userId} with ${amount}`;
         try {
             const wallet = await this.ensureWallet(userId);
-            if (wallet.balance < amount)
-                throw new Error('Insufficient balance');
-            const newBalance = wallet.balance - amount;
-            const tx = await this.prisma.$transaction([
-                this.prisma.wallet.update({ where: { id: wallet.id }, data: { balance: newBalance } }),
-                this.prisma.walletTransaction.create({
+            const txResult = await this.prisma.$transaction(async (prisma) => {
+                const updatedWallet = await prisma.wallet.update({
+                    where: { id: wallet.id },
+                    data: { balance: { increment: amount } }
+                });
+                const newTransaction = await prisma.walletTransaction.create({
                     data: {
                         walletId: wallet.id,
                         bookingId,
                         type,
                         amount,
-                        balanceAfter: newBalance,
+                        balanceAfter: updatedWallet.balance,
+                        metadata,
                     },
-                }),
-            ]);
-            return tx[0];
+                });
+                return { updatedWallet, newTransaction };
+            });
+            this.logger.log(`✅ ${operation} successful. New balance: ${txResult.updatedWallet.balance}`);
+            return txResult.updatedWallet;
         }
         catch (err) {
-            this.logger.error('debitWallet error', err);
+            this.logger.error(`${operation} failed.`, err);
+            throw new common_1.InternalServerErrorException('Failed to complete credit transaction');
+        }
+    }
+    async creditMechanic(mechanicId, amount, bookingId, metadata) {
+        return this.creditWallet(mechanicId, amount, 'CREDIT', bookingId, metadata);
+    }
+    async debitWallet(userId, amount, type = 'DEBIT', bookingId) {
+        const operation = `Debit user ${userId} with ${amount}`;
+        try {
+            const wallet = await this.ensureWallet(userId);
+            const txResult = await this.prisma.$transaction(async (prisma) => {
+                const currentWallet = await prisma.wallet.findUniqueOrThrow({ where: { id: wallet.id } });
+                if (currentWallet.balance < amount) {
+                    throw new common_1.BadRequestException('Insufficient balance');
+                }
+                const updatedWallet = await prisma.wallet.update({
+                    where: { id: wallet.id },
+                    data: { balance: { decrement: amount } }
+                });
+                const newTransaction = await prisma.walletTransaction.create({
+                    data: {
+                        walletId: wallet.id,
+                        bookingId,
+                        type,
+                        amount,
+                        balanceAfter: updatedWallet.balance,
+                    },
+                });
+                return { updatedWallet, newTransaction };
+            });
+            this.logger.log(`✅ ${operation} successful. New balance: ${txResult.updatedWallet.balance}`);
+            return txResult.updatedWallet;
+        }
+        catch (err) {
+            if (err instanceof common_1.BadRequestException && err.message === 'Insufficient balance') {
+                throw new common_1.BadRequestException('Wallet debit failed: Insufficient funds.');
+            }
+            this.logger.error(`${operation} failed.`, err);
             throw new common_1.InternalServerErrorException('Failed to debit wallet');
         }
     }

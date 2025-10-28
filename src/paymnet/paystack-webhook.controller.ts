@@ -1,15 +1,23 @@
-// src/modules/payment/payment.webhook.controller.ts
-import { Controller, Post, Req, Res, HttpCode } from '@nestjs/common';
+
+import { Controller, Post, Req, HttpCode, Headers, ForbiddenException } from '@nestjs/common';
 import { PaymentService } from './payment.services';
 
 @Controller('webhooks/paystack')
-export class PaymentWebhookController {
-  constructor(private readonly paymentService: PaymentService) {}
+export class PaystackWebhookController {
+  constructor(private readonly paymentService: PaymentService) {}
 
-  @Post()
-  @HttpCode(200)
-  async handleWebhook(@Req() req, @Res() res) {
-    await this.paymentService.handleWebhook(req.body);
-    return res.status(200).send({ received: true });
-  }
+  @Post()
+  @HttpCode(200)
+  async handlePaystackWebhook(
+    @Headers('x-paystack-signature') signature: string,
+    @Req() req: { rawBody: Buffer, body: any },
+  ) {
+    if (!signature) {
+        throw new ForbiddenException('Paystack signature missing.');
+    }
+    
+    // Calls service with explicit gateway name
+    await this.paymentService.handleWebhook(signature, req.rawBody);
+    return { received: true };
+  }
 }

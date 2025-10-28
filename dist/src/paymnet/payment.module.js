@@ -15,7 +15,6 @@ const prisma_service_1 = require("../../prisma/prisma.service");
 const sandbox_gateway_1 = require("./strategy/sandbox.gateway");
 const payment_services_1 = require("./payment.services");
 const paystack_webhook_controller_1 = require("./paystack-webhook.controller");
-const flutterwave_webhook_controller_1 = require("./flutterwave-webhook.controller");
 let PaymentModule = class PaymentModule {
 };
 exports.PaymentModule = PaymentModule;
@@ -45,7 +44,7 @@ exports.PaymentModule = PaymentModule = __decorate([
         controllers: [
             payment_controller_1.PaymentController,
             paystack_webhook_controller_1.PaystackWebhookController,
-            flutterwave_webhook_controller_1.FlutterwaveWebhookController,
+            flutter
         ],
         exports: [payment_services_1.PaymentService],
     })

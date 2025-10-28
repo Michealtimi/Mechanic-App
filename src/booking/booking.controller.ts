@@ -14,6 +14,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Query,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { BookingService } from './booking.service';
@@ -23,6 +24,7 @@ import { UpdateBookingStatusDto } from './dto/update-booking-status.dto';
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
 import { RolesGuard } from 'src/common/guard/roles.guards';
 import { CreateBookingDto } from './dto/creating-booking.dto';
+import { BookingFilterDto } from './dto/booking-filter.dto';
 import { BookingResponseDto } from './dto/bookingresponse.dto';
 import { Roles } from 'src/common/decorators/roles.decorators';
 
@@ -43,8 +45,8 @@ export class BookingController {
 
   @Get()
   @ApiOperation({ summary: 'Get all bookings for logged-in user' })
-  async getBookings(@Request() req) {
-    return this.bookingService.getAllBookings(req.user.id);
+  async getBookings(@Request() req, @Query() filter: BookingFilterDto) {
+    return this.bookingService.getAllBookings(req.user.id, filter);
   }
 
   @Get(':id')

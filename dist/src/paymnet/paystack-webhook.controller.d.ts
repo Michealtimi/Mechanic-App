@@ -1,6 +1,11 @@
 import { PaymentService } from './payment.services';
-export declare class PaymentWebhookController {
+export declare class PaystackWebhookController {
     private readonly paymentService;
     constructor(paymentService: PaymentService);
-    handleWebhook(req: any, res: any): Promise<any>;
+    handlePaystackWebhook(signature: string, req: {
+        rawBody: Buffer;
+        body: any;
+    }): Promise<{
+        received: boolean;
+    }>;
 }

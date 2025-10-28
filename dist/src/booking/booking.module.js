@@ -11,16 +11,20 @@ const common_1 = require("@nestjs/common");
 const booking_controller_1 = require("./booking.controller");
 const booking_service_1 = require("./booking.service");
 const prisma_module_1 = require("../../prisma/prisma.module");
+const wallet_module_1 = require("../wallet/wallet.module");
+const payment_module_1 = require("../paymnet/payment.module");
 let BookingModule = class BookingModule {
 };
 exports.BookingModule = BookingModule;
 exports.BookingModule = BookingModule = __decorate([
     (0, common_1.Module)({
         controllers: [booking_controller_1.BookingController],
-        providers: [
-            booking_service_1.BookingService,
+        providers: [booking_service_1.BookingService],
+        imports: [
+            prisma_module_1.PrismaModule,
+            payment_module_1.PaymentModule,
+            wallet_module_1.WalletModule,
         ],
-        imports: [prisma_module_1.PrismaModule],
     })
 ], BookingModule);
 //# sourceMappingURL=booking.module.js.map

@@ -1,4 +1,4 @@
-import { IPaymentGateway, InitializePaymentData, CreateSubaccountData } from '../interfaces/payment-gateway.interface';
+import { IPaymentGateway, InitializePaymentData, CreateSubaccountData } from '../interface/payment-gateway.interface';
 export declare class SandboxGateway implements IPaymentGateway {
     private readonly logger;
     initializePayment(args: InitializePaymentData): Promise<{

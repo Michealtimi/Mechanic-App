@@ -37,6 +37,14 @@ model User {
   lastLogin         DateTime? // added — updated on login
   refreshTokens     RefreshToken[] // relation to stored refresh tokens
   auditLogs         AuditLog[]        @relation("UserAuditLogs")
+
+  Subaccount Subaccount[]
+
+  Dispute Dispute[]
+
+  Wallet Wallet[]
+
+  Payment Payment[]
 }
 
 model MechanicService {
@@ -69,42 +77,79 @@ model Booking {
   price         Float
   paymentId     String? // Paystack/Stripe reference
   paymentStatus String          @default("PENDING")
+  
+  disputes Dispute[]
 }
 
 model Payment {
-  id          String   @id @default(uuid())
-  bookingId   String   @unique
-  reference   String   @unique
-  amount      Int
-  currency    String   @default("NGN")
-  status      String   @default("PENDING") // PENDING | SUCCESS | FAILED
-  gateway     String
-  rawResponse Json?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  reference String   @unique
+  userId    String
+  bookingId String?
+  gateway   String // "PAYSTACK", "FLUTTERWAVE"
+  amount    Int // in kobo
+  status    String // "pending" | "success" | "failed"
+  metadata  Json?
+  createdAt DateTime @default(now())
+  verifiedAt DateTime?
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
 
   Booking Booking[]
 }
 
 model Wallet {
-  id        String   @id @default(uuid())
+  id        String   @id @default(cuid())
   userId    String   @unique
-  balance   Int      @default(0)
+  balance   Int      @default(0) // in kobo
   pending   Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  user              User                @relation(fields: [userId], references: [id])
+  WalletTransaction WalletTransaction[]
+}
+
+model WalletTransaction {
+  id           String   @id @default(cuid())
+  walletId     String
+  bookingId    String?
+  type         String // "CREDIT" | "DEBIT" | "PENDING"
+  amount       Int
+  balanceAfter Int
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  wallet Wallet @relation(fields: [walletId], references: [id])
+}
+
+model Subaccount {
+  id             String   @id @default(cuid())
+  mechanicId     String
+  gateway        String // e.g. PAYSTACK, FLUTTERWAVE
+  subaccountCode String
+  bankCode       String
+  accountNumber  String
+  percentage     Float
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  mechanic User @relation(fields: [mechanicId], references: [id])
 }
 
 model Dispute {
-  id          String   @id @default(uuid())
-  bookingId   String
-  raisedBy    String
-  reason      String
-  evidenceUrl String?
-  status      String   @default("OPEN") // OPEN | RESOLVED | ESCALATED
-  resolution  String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(cuid())
+  bookingId  String
+  userId     String
+  reason     String
+  status     String   @default("open")
+  resolution String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
 }
 
 /**

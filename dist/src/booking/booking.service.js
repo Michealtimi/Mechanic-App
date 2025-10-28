@@ -9,12 +9,14 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var BookingService_1;
-var _a, _b, _c;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BookingService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../../prisma/prisma.service");
 const client_1 = require("@prisma/client");
+const payment_services_1 = require("../paymnet/payment.services");
+const notification_gateway_1 = require("../notification/notification.gateway");
+const wallet_service_1 = require("../wallet/wallet.service");
 let BookingService = BookingService_1 = class BookingService {
     prisma;
     paymentService;
@@ -261,6 +263,9 @@ let BookingService = BookingService_1 = class BookingService {
 exports.BookingService = BookingService;
 exports.BookingService = BookingService = BookingService_1 = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService, typeof (_a = typeof PaymentService !== "undefined" && PaymentService) === "function" ? _a : Object, typeof (_b = typeof WalletService !== "undefined" && WalletService) === "function" ? _b : Object, typeof (_c = typeof NotificationGateway !== "undefined" && NotificationGateway) === "function" ? _c : Object])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        payment_services_1.PaymentService,
+        wallet_service_1.WalletService,
+        notification_gateway_1.NotificationGateway])
 ], BookingService);
 //# sourceMappingURL=booking.service.js.map

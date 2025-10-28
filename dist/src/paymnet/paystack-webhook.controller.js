@@ -12,31 +12,34 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PaymentWebhookController = void 0;
+exports.PaystackWebhookController = void 0;
 const common_1 = require("@nestjs/common");
 const payment_services_1 = require("./payment.services");
-let PaymentWebhookController = class PaymentWebhookController {
+let PaystackWebhookController = class PaystackWebhookController {
     paymentService;
     constructor(paymentService) {
         this.paymentService = paymentService;
     }
-    async handleWebhook(req, res) {
-        await this.paymentService.handleWebhook(req.body);
-        return res.status(200).send({ received: true });
+    async handlePaystackWebhook(signature, req) {
+        if (!signature) {
+            throw new common_1.ForbiddenException('Paystack signature missing.');
+        }
+        await this.paymentService.handleWebhook(signature, req.rawBody);
+        return { received: true };
     }
 };
-exports.PaymentWebhookController = PaymentWebhookController;
+exports.PaystackWebhookController = PaystackWebhookController;
 __decorate([
     (0, common_1.Post)(),
     (0, common_1.HttpCode)(200),
-    __param(0, (0, common_1.Req)()),
-    __param(1, (0, common_1.Res)()),
+    __param(0, (0, common_1.Headers)('x-paystack-signature')),
+    __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
-], PaymentWebhookController.prototype, "handleWebhook", null);
-exports.PaymentWebhookController = PaymentWebhookController = __decorate([
+], PaystackWebhookController.prototype, "handlePaystackWebhook", null);
+exports.PaystackWebhookController = PaystackWebhookController = __decorate([
     (0, common_1.Controller)('webhooks/paystack'),
     __metadata("design:paramtypes", [payment_services_1.PaymentService])
-], PaymentWebhookController);
+], PaystackWebhookController);
 //# sourceMappingURL=paystack-webhook.controller.js.map

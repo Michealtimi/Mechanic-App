@@ -13,6 +13,9 @@ import { CreateBookingDto } from './dto/creating-booking.dto';
 import { UpdateBookingStatusDto } from './dto/update-booking-status.dto';
 import { BookingStatus } from '@prisma/client';
 import { BookingFilterDto } from './dto/booking-filter.dto';
+import { PaymentService } from '../paymnet/payment.services';
+import { NotificationGateway } from 'src/notification/notification.gateway';
+import { WalletService } from 'src/wallet/wallet.service';
 
 @Injectable()
 export class BookingService {

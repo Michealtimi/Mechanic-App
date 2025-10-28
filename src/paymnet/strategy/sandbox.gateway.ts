@@ -1,7 +1,7 @@
 // src/modules/payment/strategies/sandbox.gateway.ts
 
 import { Injectable, Logger } from '@nestjs/common';
-import { IPaymentGateway, InitializePaymentData, CreateSubaccountData } from '../interfaces/payment-gateway.interface';
+import { IPaymentGateway, InitializePaymentData, CreateSubaccountData } from '../interface/payment-gateway.interface';
 
 @Injectable()
 export class SandboxGateway implements IPaymentGateway {

@@ -8,7 +8,8 @@ import {
     BadRequestException,
     NotFoundException,
 } from '@nestjs/common';
-import { IPaymentGateway } from '../interface/payment-gateway.interface';
+import { CreateSubaccountData, CreateSubaccountResult, InitializePaymentData, IPaymentGateway, VerifyPaymentResult } from '../interface/payment-gateway.interface';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class PaystackGateway implements IPaymentGateway {
@@ -54,10 +55,21 @@ export class PaystackGateway implements IPaymentGateway {
         throw new InternalServerErrorException(`An unexpected error occurred during ${operation}.`);
     }
 
+    verifyWebhookSignature(signature: string, rawBody: Buffer): boolean {
+        if (!this.secret) {
+            throw new InternalServerErrorException('Paystack secret key is not configured for webhook verification.');
+        }
+        const hash = crypto
+          .createHmac('sha512', this.secret)
+          .update(rawBody)
+          .digest('hex');
+        return hash === signature;
+    }
+
     // ----------------------------------------------------------------------
     // 1. INITIALIZE PAYMENT
     // ----------------------------------------------------------------------
-    async initializePayment({ amount, email, metadata }) {
+    async initializePayment({ amount, email, metadata }: InitializePaymentData): Promise<{ paymentUrl: string; reference: string; }> {
         const operation = 'Initialize Payment';
         try {
             this.logger.log(`🚀 ${operation} for ${email}`);
@@ -85,7 +97,7 @@ export class PaystackGateway implements IPaymentGateway {
     // ----------------------------------------------------------------------
     // 2. VERIFY PAYMENT
     // ----------------------------------------------------------------------
-    async verifyPayment(reference: string) {
+    async verifyPayment(reference: string): Promise<VerifyPaymentResult> {
         const operation = `Verify Payment Reference ${reference}`;
         try {
             this.logger.log(`🔍 ${operation}`);
@@ -119,7 +131,7 @@ export class PaystackGateway implements IPaymentGateway {
     // ----------------------------------------------------------------------
     // 3. CREATE SUBACCOUNT
     // ----------------------------------------------------------------------
-    async createSubaccount({ businessName, bankCode, accountNumber, percentageCharge }) {
+    async createSubaccount({ businessName, bankCode, accountNumber, percentageCharge }: CreateSubaccountData): Promise<CreateSubaccountResult> {
         const operation = `Create Subaccount for ${businessName}`;
         try {
             this.logger.log(`🏦 ${operation}`);

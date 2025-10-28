@@ -20,6 +20,7 @@ const update_booking_status_dto_1 = require("./dto/update-booking-status.dto");
 const jwt_guard_1 = require("../auth/jwt.guard");
 const roles_guards_1 = require("../common/guard/roles.guards");
 const creating_booking_dto_1 = require("./dto/creating-booking.dto");
+const booking_filter_dto_1 = require("./dto/booking-filter.dto");
 const bookingresponse_dto_1 = require("./dto/bookingresponse.dto");
 const roles_decorators_1 = require("../common/decorators/roles.decorators");
 let BookingController = class BookingController {
@@ -30,8 +31,8 @@ let BookingController = class BookingController {
     async createBooking(req, dto) {
         return this.bookingService.createBooking(dto, req.user.id);
     }
-    async getBookings(req) {
-        return this.bookingService.getAllBookings(req.user.id);
+    async getBookings(req, filter) {
+        return this.bookingService.getAllBookings(req.user.id, filter);
     }
     async getBookingById(id, req) {
         return this.bookingService.getBookingById(id, req.user.id);
@@ -59,8 +60,9 @@ __decorate([
     (0, common_1.Get)(),
     (0, swagger_1.ApiOperation)({ summary: 'Get all bookings for logged-in user' }),
     __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Query)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, booking_filter_dto_1.BookingFilterDto]),
     __metadata("design:returntype", Promise)
 ], BookingController.prototype, "getBookings", null);
 __decorate([

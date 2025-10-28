@@ -13,6 +13,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PaystackGateway = void 0;
 const axios_1 = require("axios");
 const common_1 = require("@nestjs/common");
+const crypto = require("crypto");
 let PaystackGateway = PaystackGateway_1 = class PaystackGateway {
     logger = new common_1.Logger(PaystackGateway_1.name);
     baseUrl = 'https://api.paystack.co';
@@ -42,6 +43,16 @@ let PaystackGateway = PaystackGateway_1 = class PaystackGateway {
         }
         this.logger.error(`❌ Unknown error during ${operation}: ${error}`, error);
         throw new common_1.InternalServerErrorException(`An unexpected error occurred during ${operation}.`);
+    }
+    verifyWebhookSignature(signature, rawBody) {
+        if (!this.secret) {
+            throw new common_1.InternalServerErrorException('Paystack secret key is not configured for webhook verification.');
+        }
+        const hash = crypto
+            .createHmac('sha512', this.secret)
+            .update(rawBody)
+            .digest('hex');
+        return hash === signature;
     }
     async initializePayment({ amount, email, metadata }) {
         const operation = 'Initialize Payment';

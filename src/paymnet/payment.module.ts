@@ -7,7 +7,6 @@ import { PrismaService } from 'prisma/prisma.service';
 import { SandboxGateway } from './strategy/sandbox.gateway';
 import { PaymentService } from './payment.services';
 import { PaystackWebhookController } from './paystack-webhook.controller';
-import { FlutterwaveWebhookController } from './flutterwave-webhook.controller';
 
 @Module({
   imports: [
@@ -38,8 +37,8 @@ import { FlutterwaveWebhookController } from './flutterwave-webhook.controller';
   ],
   controllers: [
      PaymentController,
-    PaystackWebhookController,    // ⬅️ Added
-    FlutterwaveWebhookController, // ⬅️ Added
+    PaystackWebhookController,
+    flutter    // ⬅️ Added // ⬅️ Added
 
      
   ],

@@ -1,18 +1,20 @@
 import { Module } from '@nestjs/common';
 import { BookingController } from './booking.controller';
 import { BookingService } from './booking.service';
-import { JwtAuthGuard } from 'src/auth/jwt.guard';
-import { RolesGuard } from 'src/common/guard/roles.guards';
 import { PrismaModule } from 'prisma/prisma.module';
+import { WalletModule } from 'src/wallet/wallet.module';
+import { PaymentModule } from 'src/paymnet/payment.module';
+// Assuming NotificationGateway is provided in a NotificationModule
+// import { NotificationModule } from 'src/notification/notification.module';
 
 @Module({
   controllers: [BookingController],
-  providers: [
-    BookingService,
-    // Guards can be applied globally or in main.ts — optional here
-    // JwtAuthGuard,
-    // RolesGuard
+  providers: [BookingService],
+  imports: [
+    PrismaModule, // Prisma service is required to access DB
+    PaymentModule, // To use PaymentService
+    WalletModule, // To use WalletService
+    // NotificationModule, // To use NotificationGateway
   ],
-  imports: [PrismaModule], // Prisma service is required to access DB
 })
 export class BookingModule {}

@@ -1,25 +1,18 @@
 import { PrismaService } from 'prisma/prisma.service';
+import { IPaymentGateway } from './interface/payment-gateway.interface';
 export declare class PaymentService {
-    private prisma;
+    private readonly prisma;
+    private readonly gateway;
     private readonly logger;
-    private gateway;
-    constructor(prisma: PrismaService);
-    initiatePaymentForBooking(bookingId: string, amountKobo: number, metadata: any): Promise<{
-        payment: {
-            id: string;
-            status: string;
-            createdAt: Date;
-            updatedAt: Date;
-            amount: number;
-            reference: string;
-            method: string;
-            currency: string;
-            paidAt: Date | null;
-            bookingId: string;
-        };
-        checkoutUrl: any;
+    constructor(prisma: PrismaService, gateway: IPaymentGateway);
+    initializePayment(bookingId: string, userId: string): Promise<{
+        paymentUrl: string;
+        reference: string;
     }>;
-    verifyPayment(reference: string): Promise<any>;
-    partialRefund(reference: string, amount: number): Promise<any>;
-    capturePayment(paymentId: string): Promise<void>;
+    verifyPayment(reference: string): Promise<import("./interface/payment-gateway.interface").VerifyPaymentResult>;
+    handleWebhook(signature: string, rawBody: Buffer): Promise<{
+        success: boolean;
+    }>;
+    capturePayment(bookingId: string): Promise<void>;
+    partialRefund(bookingId: string, amount: number): Promise<void>;
 }
