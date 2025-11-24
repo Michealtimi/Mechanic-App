@@ -36,7 +36,7 @@ model User {
   deletedAt         DateTime?
   lastLogin         DateTime? // added — updated on login
   refreshTokens     RefreshToken[] // relation to stored refresh tokens
-  auditLogs         AuditLog[]        @relation("UserAuditLogs")
+  auditLogs         Audit[]           @relation("UserAuditLogs")
 
   Subaccount Subaccount[]
 
@@ -75,24 +75,24 @@ model Booking {
   service       MechanicService @relation(fields: [serviceId], references: [id])
   payment       Payment?        @relation(fields: [paymentId], references: [id])
   price         Float
-  paymentId     String? // Paystack/Stripe reference
+  paymentId     String?         @unique // Paystack/Stripe reference
   paymentStatus String          @default("PENDING")
-  
+
   disputes Dispute[]
 }
 
 model Payment {
-  id        String   @id @default(cuid())
-  reference String   @unique
-  userId    String
-  bookingId String?
-  gateway   String // "PAYSTACK", "FLUTTERWAVE"
-  amount    Int // in kobo
-  status    String // "pending" | "success" | "failed"
-  metadata  Json?
-  createdAt DateTime @default(now())
+  id         String    @id @default(cuid())
+  reference  String    @unique
+  userId     String
+  bookingId  String?   @unique
+  gateway    String // "PAYSTACK", "FLUTTERWAVE", "SANDBOX" 
+  amount     Int // in kobo/cents
+  status     String // "PENDING" | "SUCCESS" | "FAILED"
+  metadata   Json?
+  createdAt  DateTime  @default(now())
   verifiedAt DateTime?
-  updatedAt DateTime @updatedAt
+  updatedAt  DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id])
 
@@ -102,8 +102,8 @@ model Payment {
 model Wallet {
   id        String   @id @default(cuid())
   userId    String   @unique
-  balance   Int      @default(0) // in kobo
-  pending   Int      @default(0)
+  balance   Decimal  @default(0) // in kobo
+  pending   Decimal  @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -116,8 +116,8 @@ model WalletTransaction {
   walletId     String
   bookingId    String?
   type         String // "CREDIT" | "DEBIT" | "PENDING"
-  amount       Int
-  balanceAfter Int
+  amount       Decimal
+  balanceAfter Decimal
   metadata     Json?
   createdAt    DateTime @default(now())
 
@@ -125,28 +125,35 @@ model WalletTransaction {
 }
 
 model Subaccount {
-  id             String   @id @default(cuid())
-  mechanicId     String
-  gateway        String // e.g. PAYSTACK, FLUTTERWAVE
-  subaccountCode String
-  bankCode       String
-  accountNumber  String
-  percentage     Float
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id               String   @id @default(cuid())
+  mechanicId       String
+  gateway          String // e.g. PAYSTACK, FLUTTERWAVE
+  subaccountCode   String
+  bankCode         String
+  accountNumber    String
+  provider         String // 'paystack' | 'flutterwave'
+  subaccountId     String
+  percentageCharge Float // platform commission (e.g. 10 = 10%)
+  status           String   @default("pending") // pending|active|rejected
+  businessName     String
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   mechanic User @relation(fields: [mechanicId], references: [id])
 }
 
 model Dispute {
-  id         String   @id @default(cuid())
-  bookingId  String
-  userId     String
-  reason     String
-  status     String   @default("open")
-  resolution String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id             String    @id @default(cuid())
+  bookingId      String
+  userId         String
+  reason         String
+  status         String    @default("open")
+  resolution     String?
+  resolvedAmount Float?
+  resolvedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   booking Booking @relation(fields: [bookingId], references: [id])
   user    User    @relation(fields: [userId], references: [id])
@@ -166,7 +173,7 @@ model RefreshToken {
   createdAt DateTime @default(now())
 }
 
-model AuditLog {
+model Audit {
   id         String   @id @default(uuid())
   userId     String?
   action     String

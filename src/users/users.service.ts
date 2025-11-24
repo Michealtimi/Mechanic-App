@@ -11,13 +11,12 @@ import {
 import { PrismaService } from 'prisma/prisma.service';
 import { SignupMechanicDto } from './dto/signup-mechanic.dto';
 import { CreateUserDto } from './dto/create-user.dto';
-import { plainToInstance } from 'class-transformer';
+import { plainToClass, plainToInstance } from 'class-transformer';
 import * as bcrypt from 'bcryptjs';
-import { Role } from '@prisma/client';
 import { SignupCustomerDto } from './dto/signup-customer.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { Prisma } from '@prisma/client';
+import { Prisma, Role } from '@prisma/client';
 import { MailService } from 'src/utils/mail.service';
 
 @Injectable()
@@ -39,7 +38,7 @@ export class UsersService {
   private async createAndLogUser(
     dto: CreateUserDto,
     callerId: string | null = null,
-    callerRole: Role | null = null,
+    callerRole: string | null = null,
   ) {
     try {
       // LOG: Log the DTO received
@@ -71,7 +70,7 @@ export class UsersService {
       const data: Prisma.UserCreateInput = {
         email: email,
         password: hashedPassword,
-        role: dto.role,
+        role: dto.role as Role,
       } as any;
 
       if (dto.role === Role.MECHANIC) {
@@ -95,7 +94,7 @@ export class UsersService {
       });
 
       // 💡 Added audit log for every user creation.
-      await this.prisma.auditLog.create({
+      await this.prisma.audit.create({
         data: {
           userId: callerId, // `null` if public signup.
           action: 'CREATE_USER',
@@ -136,7 +135,7 @@ export class UsersService {
       const newUserDto: CreateUserDto = {
         email: dto.email,
         password: dto.password,
-        role: Role.CUSTOMER,
+        role: 'CUSTOMER' as Role,
       };
 
       // LOG: Log the new DTO created for a customer
@@ -173,7 +172,7 @@ export class UsersService {
       const newUserDto: CreateUserDto = {
         email: dto.email,
         password: dto.password,
-        role: Role.MECHANIC,
+        role: 'MECHANIC' as Role,
         shopName: dto.shopName,
         skills: dto.skills,
       };
@@ -207,7 +206,7 @@ export class UsersService {
    * Create user by an admin.
    * 💡 This endpoint is now strictly for admins and uses the centralized logic.
    */
-  async createUser(dto: CreateUserDto, callerId: string, callerRole: Role) {
+  async createUser(dto: CreateUserDto, callerId: string, callerRole: string) {
     try {
       // LOG: Log the DTO received from the admin request
       this.logger.log(`Admin ${callerId} creating user with email: ${dto.email}`);
@@ -242,7 +241,7 @@ export class UsersService {
    * Get all users with enhanced filtering and pagination.
    * 💡 Added optional filters for role and a search query (`q`).
    */
-  async getAllUsers(page = 1, limit = 10, filters?: { role?: Role; q?: string }) {
+  async getAllUsers(page = 1, limit = 10, filters?: { role?: string; q?: string }) {
     try {
       // LOG: Log the filters being used for the query
       this.logger.log(`Fetching users with filters: ${JSON.stringify(filters)}`);
@@ -305,7 +304,7 @@ export class UsersService {
    * Get single user by ID.
    * 💡 Error handling now throws a specific `NotFoundException`.
    */
-  async getUserById(id: string, callerId: string, callerRole: Role) {
+  async getUserById(id: string, callerId: string, callerRole: string) {
     try {
       // LOG: Log the ID being searched
       this.logger.log(`Searching for user with ID: ${id} by caller: ${callerId}`);
@@ -351,7 +350,7 @@ export class UsersService {
    * 💡 Added RBAC checks to prevent unauthorized updates.
    * 💡 Added audit logging for update actions.
    */
-  async updateUser(id: string, dto: UpdateUserDto, callerId: string, callerRole: Role) {
+  async updateUser(id: string, dto: UpdateUserDto, callerId: string, callerRole: string) {
     try {
       // 💡 LOG: Log the update attempt
       console.log(
@@ -393,7 +392,7 @@ export class UsersService {
       });
 
       // 💡 Added audit log.
-      await this.prisma.auditLog.create({
+      await this.prisma.audit.create({
         data: {
           userId: callerId,
           action: 'UPDATE_USER',
@@ -434,7 +433,7 @@ export class UsersService {
    * 💡 Added RBAC checks to ensure only authorized users can delete.
    * 💡 Added audit logging for soft delete actions.
    */
-  async deleteUser(id: string, callerId: string, callerRole: Role) {
+  async deleteUser(id: string, callerId: string, callerRole: string) {
     try {
       // LOG: Log the delete attempt
       this.logger.log(`Attempting to delete user ${id} by caller: ${callerId} (${callerRole})`);
@@ -459,7 +458,7 @@ export class UsersService {
       });
 
       // 💡 Added audit log.
-      await this.prisma.auditLog.create({
+      await this.prisma.audit.create({
         data: {
           userId: callerId,
           action: 'SOFT_DELETE_USER',

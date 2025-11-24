@@ -91,6 +91,7 @@ export class PaystackGateway implements IPaymentGateway {
             };
         } catch (err) {
             this.handlePaystackError(operation, err);
+            throw err; // Ensure function throws on error
         }
     }
 
@@ -125,6 +126,7 @@ export class PaystackGateway implements IPaymentGateway {
             };
         } catch (err) {
             this.handlePaystackError(operation, err);
+            throw err; // Ensure function throws on error
         }
     }
 
@@ -156,6 +158,7 @@ export class PaystackGateway implements IPaymentGateway {
             return { subaccountId: res.data.data.subaccount_code };
         } catch (err) {
             this.handlePaystackError(operation, err);
+            throw err; // Ensure function throws on error
         }
     }
 }

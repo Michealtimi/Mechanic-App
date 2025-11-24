@@ -14,8 +14,8 @@ async function main() {
             create: {
                 email,
                 password: hashedPassword,
-                role: client_1.Role.SUPERADMIN,
-                status: client_1.Status.ACTIVE,
+                role: 'SUPERADMIN',
+                status: 'ACTIVE',
                 firstName: 'Super',
                 lastName: 'Admin',
             },

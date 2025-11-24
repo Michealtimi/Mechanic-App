@@ -11,46 +11,35 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
-var PaystackWebhookController_1;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PaystackWebhookController = void 0;
+exports.FlutterwaveWebhookController = void 0;
 const common_1 = require("@nestjs/common");
 const payment_services_1 = require("./payment.services");
-let PaystackWebhookController = PaystackWebhookController_1 = class PaystackWebhookController {
+let FlutterwaveWebhookController = class FlutterwaveWebhookController {
     paymentService;
-    logger = new common_1.Logger(PaystackWebhookController_1.name);
     constructor(paymentService) {
         this.paymentService = paymentService;
     }
-    async handlePaystackEvent(req, res) {
-        try {
-            const secret = process.env.PAYSTACK_SECRET_KEY;
-            const payload = req.body;
-            this.logger.log(`📬 Paystack webhook received: ${payload.event}`);
-            if (payload.event === 'charge.success') {
-                const reference = payload.data.reference;
-                await this.paymentService.verify(reference);
-            }
-            res.status(200).send('ok');
+    async handlePaystackWebhook(signature, req) {
+        if (!signature) {
+            throw new common_1.ForbiddenException('Flutterwave signature missing.');
         }
-        catch (err) {
-            this.logger.error('Webhook processing failed', err);
-            res.status(500).send('Webhook error');
-        }
+        await this.paymentService.handleWebhook(signature, req.rawBody);
+        return { received: true };
     }
 };
-exports.PaystackWebhookController = PaystackWebhookController;
+exports.FlutterwaveWebhookController = FlutterwaveWebhookController;
 __decorate([
     (0, common_1.Post)(),
     (0, common_1.HttpCode)(200),
-    __param(0, (0, common_1.Req)()),
-    __param(1, (0, common_1.Res)()),
+    __param(0, (0, common_1.Headers)('verif-hash')),
+    __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
-], PaystackWebhookController.prototype, "handlePaystackEvent", null);
-exports.PaystackWebhookController = PaystackWebhookController = PaystackWebhookController_1 = __decorate([
-    (0, common_1.Controller)('webhooks/paystack'),
+], FlutterwaveWebhookController.prototype, "handlePaystackWebhook", null);
+exports.FlutterwaveWebhookController = FlutterwaveWebhookController = __decorate([
+    (0, common_1.Controller)('webhooks/flutterwave'),
     __metadata("design:paramtypes", [payment_services_1.PaymentService])
-], PaystackWebhookController);
+], FlutterwaveWebhookController);
 //# sourceMappingURL=flutterwave-webhook.controller.js.map

@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var _a, _b, _c, _d;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UsersController = void 0;
 const common_1 = require("@nestjs/common");
@@ -77,7 +78,7 @@ __decorate([
     __param(1, (0, get_user_decorator_1.GetUser)('id')),
     __param(2, (0, get_user_decorator_1.GetUser)('role')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [create_user_dto_1.CreateUserDto, String, String]),
+    __metadata("design:paramtypes", [create_user_dto_1.CreateUserDto, String, typeof (_a = typeof client_1.Role !== "undefined" && client_1.Role) === "function" ? _a : Object]),
     __metadata("design:returntype", void 0)
 ], UsersController.prototype, "createUser", null);
 __decorate([
@@ -99,7 +100,7 @@ __decorate([
     __param(1, (0, get_user_decorator_1.GetUser)('id')),
     __param(2, (0, get_user_decorator_1.GetUser)('role')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:paramtypes", [String, String, typeof (_b = typeof client_1.Role !== "undefined" && client_1.Role) === "function" ? _b : Object]),
     __metadata("design:returntype", void 0)
 ], UsersController.prototype, "getUserById", null);
 __decorate([
@@ -110,7 +111,7 @@ __decorate([
     __param(2, (0, get_user_decorator_1.GetUser)('id')),
     __param(3, (0, get_user_decorator_1.GetUser)('role')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, update_user_dto_1.UpdateUserDto, String, String]),
+    __metadata("design:paramtypes", [String, update_user_dto_1.UpdateUserDto, String, typeof (_c = typeof client_1.Role !== "undefined" && client_1.Role) === "function" ? _c : Object]),
     __metadata("design:returntype", void 0)
 ], UsersController.prototype, "updateUser", null);
 __decorate([
@@ -121,7 +122,7 @@ __decorate([
     __param(1, (0, get_user_decorator_1.GetUser)('id')),
     __param(2, (0, get_user_decorator_1.GetUser)('role')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:paramtypes", [String, String, typeof (_d = typeof client_1.Role !== "undefined" && client_1.Role) === "function" ? _d : Object]),
     __metadata("design:returntype", void 0)
 ], UsersController.prototype, "deleteUser", null);
 exports.UsersController = UsersController = __decorate([

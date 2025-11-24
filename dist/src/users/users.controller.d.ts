@@ -26,11 +26,11 @@ export declare class UsersController {
         success: boolean;
         message: string;
         data: {
-            users: import("./dto/user-response.dto").UserResponseDto[];
+            users: import("./dto/user-response.dto").UserResponseDto;
             pagination: {
                 page: number;
                 limit: number;
-                total: number;
+                total: any;
                 totalPages: number;
             };
         };

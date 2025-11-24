@@ -17,16 +17,19 @@ const client_1 = require("@prisma/client");
 const payment_services_1 = require("../paymnet/payment.services");
 const notification_gateway_1 = require("../notification/notification.gateway");
 const wallet_service_1 = require("../wallet/wallet.service");
+const audit_service_1 = require("../audit/audit.service");
 let BookingService = BookingService_1 = class BookingService {
     prisma;
     paymentService;
     walletService;
+    auditService;
     notificationGateway;
     logger = new common_1.Logger(BookingService_1.name);
-    constructor(prisma, paymentService, walletService, notificationGateway) {
+    constructor(prisma, paymentService, walletService, auditService, notificationGateway) {
         this.prisma = prisma;
         this.paymentService = paymentService;
         this.walletService = walletService;
+        this.auditService = auditService;
         this.notificationGateway = notificationGateway;
     }
     async createBooking(dto, customerId) {
@@ -78,6 +81,7 @@ let BookingService = BookingService_1 = class BookingService {
             });
             this.logger.log(`[createBooking] Booking created successfully with ID: ${booking.id}`);
             console.log(`[createBooking] Successfully created booking ID: ${booking.id}`);
+            await this.auditService.log(customerId, 'CREATE_BOOKING', 'BOOKING', booking.id);
             return booking;
         }
         catch (err) {
@@ -189,17 +193,23 @@ let BookingService = BookingService_1 = class BookingService {
                 this.logger.error(`[updateBookingStatus] Forbidden: Mechanic ${mechanicId} cannot update booking ${id}`);
                 throw new common_1.ForbiddenException('You cannot update this booking');
             }
-            const updatedBooking = await this.prisma.booking.update({
-                where: { id },
-                data: { status: dto.status },
+            const updatedBooking = await this.prisma.$transaction(async (tx) => {
+                const bookingUpdate = await tx.booking.update({
+                    where: { id },
+                    data: { status: dto.status },
+                });
+                if (dto.status === client_1.BookingStatus.COMPLETED) {
+                    this.logger.log(`[updateBookingStatus] Booking ${id} completed. Initiating payment and notification.`);
+                    await this.paymentService.capturePayment(booking.id);
+                    await this.walletService.creditMechanicWithTx(tx, booking.mechanicId, booking.price, booking.id);
+                    this.logger.log(`[updateBookingStatus] Post-completion actions successful for booking ${id}.`);
+                }
+                return bookingUpdate;
             });
             if (dto.status === client_1.BookingStatus.COMPLETED) {
-                this.logger.log(`[updateBookingStatus] Booking ${id} completed. Initiating payment and notification.`);
-                await this.paymentService.capturePayment(booking.id);
-                await this.walletService.creditMechanic(booking.mechanicId, booking.price, booking.id);
                 await this.notificationGateway.emitBookingCompleted(booking.customerId, booking.id);
-                this.logger.log(`[updateBookingStatus] Post-completion actions successful for booking ${id}.`);
             }
+            await this.auditService.log(mechanicId, 'UPDATE_BOOKING_STATUS', 'BOOKING', id, { newStatus: dto.status });
             this.logger.log(`[updateBookingStatus] Successfully updated booking ${id}`);
             console.log(`[updateBookingStatus] Booking ${id} updated to ${updatedBooking.status}`);
             return updatedBooking;
@@ -246,6 +256,7 @@ let BookingService = BookingService_1 = class BookingService {
                 data: { status: client_1.BookingStatus.CANCELLED },
             });
             await this.notificationGateway.emitBookingCancelled(booking.mechanicId, booking.id);
+            await this.auditService.log(customerId, 'CANCEL_BOOKING', 'BOOKING', id);
             this.logger.log(`[cancelBooking] Mechanic ${booking.mechanicId} notified of cancellation.`);
             this.logger.log(`[cancelBooking] Successfully cancelled booking ${id}`);
             console.log(`[cancelBooking] Booking ${id} successfully CANCELLED.`);
@@ -266,6 +277,7 @@ exports.BookingService = BookingService = BookingService_1 = __decorate([
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         payment_services_1.PaymentService,
         wallet_service_1.WalletService,
+        audit_service_1.AuditService,
         notification_gateway_1.NotificationGateway])
 ], BookingService);
 //# sourceMappingURL=booking.service.js.map

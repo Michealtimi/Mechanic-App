@@ -15,15 +15,18 @@ const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../../prisma/prisma.service");
 const wallet_service_1 = require("../wallet/wallet.service");
 const payment_services_1 = require("../paymnet/payment.services");
+const audit_service_1 = require("../audit/audit.service");
 let DisputeService = DisputeService_1 = class DisputeService {
     prisma;
     walletService;
     paymentService;
+    auditService;
     logger = new common_1.Logger(DisputeService_1.name);
-    constructor(prisma, walletService, paymentService) {
+    constructor(prisma, walletService, paymentService, auditService) {
         this.prisma = prisma;
         this.walletService = walletService;
         this.paymentService = paymentService;
+        this.auditService = auditService;
     }
     async raiseDispute(userId, bookingId, reason) {
         const operation = `Raise dispute for booking ${bookingId}`;
@@ -37,7 +40,7 @@ let DisputeService = DisputeService_1 = class DisputeService {
             throw new common_1.ForbiddenException('A pending dispute already exists for this booking.');
         }
         try {
-            return this.prisma.dispute.create({
+            const dispute = await this.prisma.dispute.create({
                 data: {
                     userId,
                     bookingId,
@@ -45,6 +48,8 @@ let DisputeService = DisputeService_1 = class DisputeService {
                     status: 'pending',
                 },
             });
+            await this.auditService.log(userId, 'RAISE_DISPUTE', 'DISPUTE', dispute.id);
+            return dispute;
         }
         catch (error) {
             this.logger.error(`${operation} failed.`, error);
@@ -52,12 +57,13 @@ let DisputeService = DisputeService_1 = class DisputeService {
         }
     }
     async resolveDispute(disputeId, resolution, refundAmount, isRefundToCustomer, isDebitMechanic) {
+        const adminUserId = 'SYSTEM_ADMIN_ID';
         const operation = `Resolve dispute ${disputeId}`;
         const dispute = await this.prisma.dispute.findUnique({
             where: { id: disputeId },
             include: {
                 booking: {
-                    select: { customerId: true, mechanicId: true, paymentReference: true }
+                    select: { id: true, customerId: true, mechanicId: true, paymentId: true }
                 }
             }
         });
@@ -69,29 +75,33 @@ let DisputeService = DisputeService_1 = class DisputeService {
             throw new common_1.InternalServerErrorException('Dispute is not linked to a valid booking.');
         if (refundAmount < 0)
             throw new common_1.BadRequestException('Refund amount must be non-negative.');
-        const { paymentReference, mechanicId, customerId } = dispute.booking;
+        const { paymentId, mechanicId } = dispute.booking;
         try {
-            if (refundAmount > 0) {
-                if (isRefundToCustomer) {
-                    if (!paymentReference)
-                        throw new common_1.InternalServerErrorException('Cannot refund: Payment reference missing.');
-                    await this.paymentService.refundPayment(paymentReference, refundAmount);
-                    this.logger.log(`Customer refund initiated for ${refundAmount} via gateway.`);
+            const updatedDispute = await this.prisma.$transaction(async (tx) => {
+                if (refundAmount > 0) {
+                    if (isRefundToCustomer) {
+                        if (!paymentId)
+                            throw new common_1.InternalServerErrorException('Cannot refund: Payment reference missing.');
+                        await this.paymentService.refundPayment(paymentId, refundAmount);
+                        this.logger.log(`Customer refund initiated for ${refundAmount} via gateway.`);
+                    }
+                    if (isDebitMechanic) {
+                        await this.walletService.debitWalletWithTx(tx, mechanicId, refundAmount, 'DISPUTE_DEBIT', dispute.bookingId);
+                        this.logger.log(`Mechanic ${mechanicId} debited ${refundAmount} from wallet.`);
+                    }
                 }
-                if (isDebitMechanic) {
-                    await this.walletService.debitWallet(mechanicId, refundAmount, 'DISPUTE_DEBIT', dispute.bookingId);
-                    this.logger.log(`Mechanic ${mechanicId} debited ${refundAmount} from wallet.`);
-                }
-            }
-            return this.prisma.dispute.update({
-                where: { id: disputeId },
-                data: {
-                    status: 'resolved',
-                    resolution,
-                    resolvedAt: new Date(),
-                    resolvedAmount: refundAmount,
-                },
+                return tx.dispute.update({
+                    where: { id: disputeId },
+                    data: {
+                        status: 'resolved',
+                        resolution,
+                        updatedAt: new Date(),
+                        resolvedAmount: refundAmount,
+                    },
+                });
             });
+            await this.auditService.log(adminUserId, 'RESOLVE_DISPUTE', 'DISPUTE', disputeId, { resolution, refundAmount });
+            return updatedDispute;
         }
         catch (error) {
             this.logger.error(`${operation} failed during financial step.`, error);
@@ -110,6 +120,7 @@ exports.DisputeService = DisputeService = DisputeService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         wallet_service_1.WalletService,
-        payment_services_1.PaymentService])
+        payment_services_1.PaymentService,
+        audit_service_1.AuditService])
 ], DisputeService);
 //# sourceMappingURL=dispute.service.js.map

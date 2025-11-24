@@ -1,8 +1,11 @@
-import { Request, Response } from 'express';
 import { PaymentService } from './payment.services';
-export declare class PaystackWebhookController {
+export declare class FlutterwaveWebhookController {
     private readonly paymentService;
-    private readonly logger;
     constructor(paymentService: PaymentService);
-    handlePaystackEvent(req: Request, res: Response): Promise<void>;
+    handlePaystackWebhook(signature: string, req: {
+        rawBody: Buffer;
+        body: any;
+    }): Promise<{
+        received: boolean;
+    }>;
 }

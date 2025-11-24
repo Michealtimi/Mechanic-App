@@ -7,7 +7,7 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
-import { IPaymentGateway, InitializePaymentData, CreateSubaccountData } from '../interface/payment-gateway.interface';
+import { IPaymentGateway, InitializePaymentData, CreateSubaccountData, VerifyPaymentResult, CreateSubaccountResult } from '../interface/payment-gateway.interface';
 
 @Injectable()
 export class FlutterwaveGateway implements IPaymentGateway {
@@ -64,7 +64,7 @@ export class FlutterwaveGateway implements IPaymentGateway {
   // ----------------------------------------------------------------------
   // 1. initializePayment
   // ----------------------------------------------------------------------
-  async initializePayment({ amount, email, metadata }: InitializePaymentData) {
+  async initializePayment({ amount, email, metadata }: InitializePaymentData): Promise<{ paymentUrl: string; reference: string; }> {
     const operation = 'Flutterwave Initialize Payment';
     // ⚠️ FIX: Amount conversion should use Math.round to avoid floating point issues 
     // and correctly handle kobo to naira conversion (amount/100).
@@ -86,19 +86,20 @@ export class FlutterwaveGateway implements IPaymentGateway {
         { headers: this.headers() },
       );
 
-      return Promise.resolve({
+      return {
         paymentUrl: response.data.data.link,
         reference: response.data.data.tx_ref,
-      });
+      };
     } catch (err) {
       this.handleError(operation, err);
+      throw err; // Ensure function throws on error
     }
   }
 
   // ----------------------------------------------------------------------
   // 2. verifyPayment
   // ----------------------------------------------------------------------
-  async verifyPayment(reference: string) {
+  async verifyPayment(reference: string): Promise<VerifyPaymentResult> {
     const operation = `Flutterwave Verify ${reference}`;
     try {
       this.logger.log(`🔍 ${operation}`);
@@ -113,20 +114,21 @@ export class FlutterwaveGateway implements IPaymentGateway {
       else if (data.status === 'failed') status = 'failed';
       
       // Convert amount back to kobo/cents, ensuring integer math (e.g., using Math.round)
-      return Promise.resolve({
+      return {
         status,
         amount: Math.round(data.amount * 100), 
         raw: data,
-      });
+      };
     } catch (err) {
       this.handleError(operation, err);
+      throw err; // Ensure function throws on error
     }
   }
 
   // ----------------------------------------------------------------------
   // 3. createSubaccount
   // ----------------------------------------------------------------------
-  async createSubaccount({ businessName, bankCode, accountNumber, percentageCharge }: CreateSubaccountData) {
+  async createSubaccount({ businessName, bankCode, accountNumber, percentageCharge }: CreateSubaccountData): Promise<CreateSubaccountResult> {
     const operation = `Flutterwave Create Subaccount for ${businessName}`;
     try {
       this.logger.log(`🏦 ${operation}`);
@@ -148,9 +150,10 @@ export class FlutterwaveGateway implements IPaymentGateway {
         { headers: this.headers() },
       );
 
-      return Promise.resolve({ subaccountId: res.data.data.id });
+  	  return { subaccountId: res.data.data.id };
     } catch (err) {
       this.handleError(operation, err);
+      throw err; // Ensure function throws on error
     }
   }
 }

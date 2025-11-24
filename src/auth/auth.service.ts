@@ -419,15 +419,15 @@ export class AuthService {
 
       const jti = uuidv4();
 
-      const accessPayload = { sub: userId, email, role };
-      const refreshPayload = { sub: userId, email, role, jti };
+      const accessPayload = { sub: userId, email, role: role as string };
+      const refreshPayload = { sub: userId, email, role: role as string, jti };
 
-      const accessToken = await this.jwtService.signAsync(accessPayload, {
+      const accessToken = await this.jwtService.signAsync({ ...accessPayload }, {
         secret: this.config.get<string>('JWT_ACCESS_SECRET'),
         expiresIn: this.config.get<string>('JWT_ACCESS_EXPIRES') || '15m',
       });
 
-      const refreshToken = await this.jwtService.signAsync(refreshPayload, {
+      const refreshToken = await this.jwtService.signAsync({ ...refreshPayload }, {
         secret: this.config.get<string>('JWT_REFRESH_SECRET'),
         expiresIn: this.config.get<string>('JWT_REFRESH_EXPIRES') || '7d',
       });

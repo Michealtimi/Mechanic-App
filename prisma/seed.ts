@@ -1,5 +1,5 @@
 // prisma/seed.ts
-import { PrismaClient, Role, Status } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -23,8 +23,8 @@ async function main() {
       create: {
         email,
         password: hashedPassword,
-        role: Role.SUPERADMIN, // 💡 Type Safety: Using the Prisma Role enum directly.
-        status: Status.ACTIVE, // 💡 Type Safety: Using the Prisma Status enum.
+        role: 'SUPERADMIN', // 💡 Using string literal for Role enum
+        status: 'ACTIVE', // 💡 Using string literal for Status enum
         firstName: 'Super',
         lastName: 'Admin',
         // You can add more specific fields if your schema includes them, e.g., fullName.

@@ -9,26 +9,36 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var NotificationGateway_1;
-var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.NotificationGateway = void 0;
 const websockets_1 = require("@nestjs/websockets");
-const socket_io_1 = require("socket.io");
 const common_1 = require("@nestjs/common");
+const socket_io_1 = require("socket.io");
+const jwt_1 = require("@nestjs/jwt");
 let NotificationGateway = NotificationGateway_1 = class NotificationGateway {
+    jwtService;
     server;
     logger = new common_1.Logger(NotificationGateway_1.name);
     connectedUsers = new Map();
+    constructor(jwtService) {
+        this.jwtService = jwtService;
+    }
     handleConnection(socket) {
         const token = socket.handshake.auth.token;
+        if (!token) {
+            this.logger.warn('Connection rejected: Missing token.');
+            return socket.disconnect();
+        }
         try {
             const payload = this.jwtService.verify(token);
-            const userId = payload.sub;
+            const userId = payload.sub || payload.id;
             this.connectedUsers.set(userId, socket.id);
+            socket.userId = userId;
+            socket.join(userId);
             this.logger.log(`User connected (verified): ${userId}`);
         }
         catch (e) {
-            this.logger.error('Unauthorized WebSocket connection attempt.');
+            this.logger.error('Unauthorized WebSocket connection attempt. Token invalid.', e.message);
             socket.disconnect();
         }
     }
@@ -39,31 +49,33 @@ let NotificationGateway = NotificationGateway_1 = class NotificationGateway {
             this.logger.log(`User disconnected: ${userId}`);
         }
     }
-    emitBookingCompleted(userId, bookingId) {
-        const socketId = this.connectedUsers.get(userId);
-        if (socketId) {
-            this.server.to(socketId).emit('bookingCompleted', { bookingId });
+    emitToUser(userId, event, payload) {
+        const isUserOnline = this.connectedUsers.has(userId);
+        if (isUserOnline) {
+            this.server.to(userId).emit(event, payload);
+            return true;
         }
-    }
-    emitPaymentConfirmed(userId, amount) {
-        const socketId = this.connectedUsers.get(userId);
-        if (socketId) {
-            this.server.to(socketId).emit('paymentConfirmed', { amount });
-        }
+        return false;
     }
     emitBookingCancelled(mechanicId, bookingId) {
-        const socketId = this.connectedUsers.get(mechanicId);
-        if (socketId) {
-            this.server.to(socketId).emit('bookingCancelled', { bookingId });
-        }
+        this.emitToUser(mechanicId, 'bookingCancelled', { bookingId });
+    }
+    sendBookingCompleted(userId, bookingId) {
+        this.emitToUser(userId, 'bookingCompleted', { bookingId, message: 'Your booking is complete!' });
+    }
+    emitBookingCompleted(userId, bookingId) {
+        this.sendBookingCompleted(userId, bookingId);
     }
 };
 exports.NotificationGateway = NotificationGateway;
 __decorate([
     (0, websockets_1.WebSocketServer)(),
-    __metadata("design:type", typeof (_a = typeof socket_io_1.Server !== "undefined" && socket_io_1.Server) === "function" ? _a : Object)
+    __metadata("design:type", socket_io_1.Server)
 ], NotificationGateway.prototype, "server", void 0);
 exports.NotificationGateway = NotificationGateway = NotificationGateway_1 = __decorate([
-    (0, websockets_1.WebSocketGateway)({ cors: true })
+    (0, websockets_1.WebSocketGateway)({
+        cors: true,
+    }),
+    __metadata("design:paramtypes", [jwt_1.JwtService])
 ], NotificationGateway);
 //# sourceMappingURL=notification.gateway.js.map

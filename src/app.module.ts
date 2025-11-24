@@ -8,6 +8,8 @@ import { BookingModule } from './booking/booking.module';
 import { MailService } from './utils/mail.service';
 import { DisputeModule } from './dispute/dispute.module';
 import { PaymentModule } from './paymnet/payment.module';
+import { AuditModule } from 'src/audit/audit.module';
+import { NotificationModule } from './notification/notification.module';
 
 @Module({
   imports: [
@@ -20,6 +22,8 @@ import { PaymentModule } from './paymnet/payment.module';
     BookingModule,
     PaymentModule,
     DisputeModule,
+    AuditModule,
+    NotificationModule,
   ],
   providers: [MailService],
   exports: [MailService],

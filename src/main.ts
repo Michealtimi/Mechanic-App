@@ -2,20 +2,27 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
 import * as cookieParser from 'cookie-parser'; // Corrected spelling for consistency
 
 // Imports for Swagger
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { json } from 'express';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app: INestApplication = await NestFactory.create(AppModule, {
+    // Enable raw body for webhook signature verification
+    rawBody: true,
+  });
 
   // Global Pipes for validation
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 
   // Cookie Parser middleware
   app.use(cookieParser()); // No change here, just noting its presence
+
+  // Middleware to make raw body available for webhooks
+  app.use(json({ verify: (req: any, res, buf) => { req.rawBody = buf; } }));
 
   // Swagger config n 
   const config = new DocumentBuilder()

@@ -69,6 +69,7 @@ let PaystackGateway = PaystackGateway_1 = class PaystackGateway {
         }
         catch (err) {
             this.handlePaystackError(operation, err);
+            throw err;
         }
     }
     async verifyPayment(reference) {
@@ -97,6 +98,7 @@ let PaystackGateway = PaystackGateway_1 = class PaystackGateway {
         }
         catch (err) {
             this.handlePaystackError(operation, err);
+            throw err;
         }
     }
     async createSubaccount({ businessName, bankCode, accountNumber, percentageCharge }) {
@@ -117,6 +119,7 @@ let PaystackGateway = PaystackGateway_1 = class PaystackGateway {
         }
         catch (err) {
             this.handlePaystackError(operation, err);
+            throw err;
         }
     }
 };

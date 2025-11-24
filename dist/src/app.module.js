@@ -16,6 +16,8 @@ const booking_module_1 = require("./booking/booking.module");
 const mail_service_1 = require("./utils/mail.service");
 const dispute_module_1 = require("./dispute/dispute.module");
 const payment_module_1 = require("./paymnet/payment.module");
+const audit_module_1 = require("./audit/audit.module");
+const notification_module_1 = require("./notification/notification.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -31,6 +33,8 @@ exports.AppModule = AppModule = __decorate([
             booking_module_1.BookingModule,
             payment_module_1.PaymentModule,
             dispute_module_1.DisputeModule,
+            audit_module_1.AuditModule,
+            notification_module_1.NotificationModule,
         ],
         providers: [mail_service_1.MailService],
         exports: [mail_service_1.MailService],

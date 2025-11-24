@@ -282,13 +282,13 @@ let AuthService = AuthService_1 = class AuthService {
         try {
             console.log(`Generating tokens and storing refresh for user ${userId}`);
             const jti = (0, uuid_1.v4)();
-            const accessPayload = { sub: userId, email, role };
-            const refreshPayload = { sub: userId, email, role, jti };
-            const accessToken = await this.jwtService.signAsync(accessPayload, {
+            const accessPayload = { sub: userId, email, role: role };
+            const refreshPayload = { sub: userId, email, role: role, jti };
+            const accessToken = await this.jwtService.signAsync({ ...accessPayload }, {
                 secret: this.config.get('JWT_ACCESS_SECRET'),
                 expiresIn: this.config.get('JWT_ACCESS_EXPIRES') || '15m',
             });
-            const refreshToken = await this.jwtService.signAsync(refreshPayload, {
+            const refreshToken = await this.jwtService.signAsync({ ...refreshPayload }, {
                 secret: this.config.get('JWT_REFRESH_SECRET'),
                 expiresIn: this.config.get('JWT_REFRESH_EXPIRES') || '7d',
             });

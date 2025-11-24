@@ -5,10 +5,14 @@ const app_module_1 = require("./app.module");
 const common_1 = require("@nestjs/common");
 const cookieParser = require("cookie-parser");
 const swagger_1 = require("@nestjs/swagger");
+const express_1 = require("express");
 async function bootstrap() {
-    const app = await core_1.NestFactory.create(app_module_1.AppModule);
+    const app = await core_1.NestFactory.create(app_module_1.AppModule, {
+        rawBody: true,
+    });
     app.useGlobalPipes(new common_1.ValidationPipe({ whitelist: true, transform: true }));
     app.use(cookieParser());
+    app.use((0, express_1.json)({ verify: (req, res, buf) => { req.rawBody = buf; } }));
     const config = new swagger_1.DocumentBuilder()
         .setTitle('Mechanic Booking API')
         .setDescription('API for mechanic service and booking system')

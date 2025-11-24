@@ -10,8 +10,8 @@ export declare class PaymentController {
     }>;
     verifyPayment(reference: string): Promise<{
         message: string;
-        status: "pending" | "success" | "failed";
-        amount: number;
+        status: any;
+        amount: any;
     }>;
     handleWebhook(paystackSignature: string, flutterwaveSignature: string, payload: any): Promise<{
         received: boolean;

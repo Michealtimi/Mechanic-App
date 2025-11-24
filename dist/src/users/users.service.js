@@ -15,8 +15,8 @@ const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../../prisma/prisma.service");
 const class_transformer_1 = require("class-transformer");
 const bcrypt = require("bcryptjs");
-const client_1 = require("@prisma/client");
 const user_response_dto_1 = require("./dto/user-response.dto");
+const client_1 = require("@prisma/client");
 const mail_service_1 = require("../utils/mail.service");
 let UsersService = UsersService_1 = class UsersService {
     prisma;
@@ -62,7 +62,7 @@ let UsersService = UsersService_1 = class UsersService {
             const user = await this.prisma.user.create({
                 data,
             });
-            await this.prisma.auditLog.create({
+            await this.prisma.audit.create({
                 data: {
                     userId: callerId,
                     action: 'CREATE_USER',
@@ -91,7 +91,7 @@ let UsersService = UsersService_1 = class UsersService {
             const newUserDto = {
                 email: dto.email,
                 password: dto.password,
-                role: client_1.Role.CUSTOMER,
+                role: 'CUSTOMER',
             };
             this.logger.log(`Processing signup for new customer: ${newUserDto.email}`);
             const user = await this.createAndLogUser(newUserDto);
@@ -115,7 +115,7 @@ let UsersService = UsersService_1 = class UsersService {
             const newUserDto = {
                 email: dto.email,
                 password: dto.password,
-                role: client_1.Role.MECHANIC,
+                role: 'MECHANIC',
                 shopName: dto.shopName,
                 skills: dto.skills,
             };
@@ -258,7 +258,7 @@ let UsersService = UsersService_1 = class UsersService {
                 where: { id },
                 data: updateData,
             });
-            await this.prisma.auditLog.create({
+            await this.prisma.audit.create({
                 data: {
                     userId: callerId,
                     action: 'UPDATE_USER',
@@ -302,7 +302,7 @@ let UsersService = UsersService_1 = class UsersService {
                 where: { id },
                 data: { deletedAt: new Date() },
             });
-            await this.prisma.auditLog.create({
+            await this.prisma.audit.create({
                 data: {
                     userId: callerId,
                     action: 'SOFT_DELETE_USER',

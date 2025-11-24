@@ -9,10 +9,22 @@ export declare class PaymentService {
         paymentUrl: string;
         reference: string;
     }>;
-    verifyPayment(reference: string): Promise<import("./interface/payment-gateway.interface").VerifyPaymentResult>;
-    handleWebhook(signature: string, rawBody: Buffer): Promise<{
+    verifyPayment(reference: string, overrideGateway?: IPaymentGateway): Promise<any>;
+    handleWebhook(signature: string, rawBody: Buffer, gatewayIdentifier?: string): Promise<{
         success: boolean;
     }>;
-    capturePayment(bookingId: string): Promise<void>;
-    partialRefund(bookingId: string, amount: number): Promise<void>;
+    capturePayment(reference: string): Promise<{
+        success: boolean;
+        gatewayData?: any;
+    }>;
+    refundPayment(reference: string, amount: number): Promise<{
+        success: boolean;
+        gatewayData?: any;
+    }>;
+    partialRefund(reference: string, amount: number): Promise<{
+        success: boolean;
+        gatewayData?: any;
+    }>;
+    private triggerPostPaymentActions;
+    private getGatewayName;
 }

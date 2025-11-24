@@ -11,24 +11,7 @@ export declare class AuthService {
     private readonly mailService;
     private readonly logger;
     constructor(prisma: PrismaService, jwtService: JwtService, config: ConfigService, mailService: MailService);
-    register(dto: RegisterUserDto): Promise<{
-        id: string;
-        email: string;
-        firstName: string | null;
-        lastName: string | null;
-        role: import(".prisma/client").$Enums.Role;
-        status: import(".prisma/client").$Enums.Status;
-        shopName: string | null;
-        location: string | null;
-        createdAt: Date;
-        updatedAt: Date;
-        experienceYears: number | null;
-        profilePictureUrl: string | null;
-        bio: string | null;
-        certificationUrls: string[];
-        deletedAt: Date | null;
-        lastLogin: Date | null;
-    }>;
+    register(dto: RegisterUserDto): Promise<any>;
     login(dto: LoginDto): Promise<{
         accessToken: string;
         refreshToken: string;

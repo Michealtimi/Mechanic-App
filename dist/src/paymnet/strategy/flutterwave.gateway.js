@@ -59,13 +59,14 @@ let FlutterwaveGateway = FlutterwaveGateway_1 = class FlutterwaveGateway {
                 customer: { email },
                 meta: metadata,
             }, { headers: this.headers() });
-            return Promise.resolve({
+            return {
                 paymentUrl: response.data.data.link,
                 reference: response.data.data.tx_ref,
-            });
+            };
         }
         catch (err) {
             this.handleError(operation, err);
+            throw err;
         }
     }
     async verifyPayment(reference) {
@@ -81,14 +82,15 @@ let FlutterwaveGateway = FlutterwaveGateway_1 = class FlutterwaveGateway {
                 status = 'success';
             else if (data.status === 'failed')
                 status = 'failed';
-            return Promise.resolve({
+            return {
                 status,
                 amount: Math.round(data.amount * 100),
                 raw: data,
-            });
+            };
         }
         catch (err) {
             this.handleError(operation, err);
+            throw err;
         }
     }
     async createSubaccount({ businessName, bankCode, accountNumber, percentageCharge }) {
@@ -103,10 +105,11 @@ let FlutterwaveGateway = FlutterwaveGateway_1 = class FlutterwaveGateway {
                 split_type: 'percentage',
                 split_value: splitValue,
             }, { headers: this.headers() });
-            return Promise.resolve({ subaccountId: res.data.data.id });
+            return { subaccountId: res.data.data.id };
         }
         catch (err) {
             this.handleError(operation, err);
+            throw err;
         }
     }
 };

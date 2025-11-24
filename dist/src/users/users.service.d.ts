@@ -1,7 +1,6 @@
 import { PrismaService } from 'prisma/prisma.service';
 import { SignupMechanicDto } from './dto/signup-mechanic.dto';
 import { CreateUserDto } from './dto/create-user.dto';
-import { Role } from '@prisma/client';
 import { SignupCustomerDto } from './dto/signup-customer.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -22,38 +21,38 @@ export declare class UsersService {
         message: string;
         data: UserResponseDto;
     }>;
-    createUser(dto: CreateUserDto, callerId: string, callerRole: Role): Promise<{
+    createUser(dto: CreateUserDto, callerId: string, callerRole: string): Promise<{
         success: boolean;
         message: string;
         data: UserResponseDto;
     }>;
     getAllUsers(page?: number, limit?: number, filters?: {
-        role?: Role;
+        role?: string;
         q?: string;
     }): Promise<{
         success: boolean;
         message: string;
         data: {
-            users: UserResponseDto[];
+            users: UserResponseDto;
             pagination: {
                 page: number;
                 limit: number;
-                total: number;
+                total: any;
                 totalPages: number;
             };
         };
     }>;
-    getUserById(id: string, callerId: string, callerRole: Role): Promise<{
+    getUserById(id: string, callerId: string, callerRole: string): Promise<{
         success: boolean;
         message: string;
         data: UserResponseDto;
     }>;
-    updateUser(id: string, dto: UpdateUserDto, callerId: string, callerRole: Role): Promise<{
+    updateUser(id: string, dto: UpdateUserDto, callerId: string, callerRole: string): Promise<{
         success: boolean;
         message: string;
         data: UserResponseDto;
     }>;
-    deleteUser(id: string, callerId: string, callerRole: Role): Promise<{
+    deleteUser(id: string, callerId: string, callerRole: string): Promise<{
         success: boolean;
         message: string;
         data: UserResponseDto;

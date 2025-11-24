@@ -16,15 +16,17 @@ import { BookingFilterDto } from './dto/booking-filter.dto';
 import { PaymentService } from '../paymnet/payment.services';
 import { NotificationGateway } from 'src/notification/notification.gateway';
 import { WalletService } from 'src/wallet/wallet.service';
+import { AuditService } from 'src/audit/audit.service';
 
 @Injectable()
 export class BookingService {
   private readonly logger = new Logger(BookingService.name);
 
-  constructor(
+ constructor(
     private readonly prisma: PrismaService,
     private readonly paymentService: PaymentService, // 👈 New dependency
     private readonly walletService: WalletService,   // 👈 New dependency
+    private readonly auditService: AuditService,     // 👈 New dependency
     private readonly notificationGateway: NotificationGateway,
   ) {}
 
@@ -96,6 +98,14 @@ export class BookingService {
       this.logger.log(`[createBooking] Booking created successfully with ID: ${booking.id}`);
       // 💡 CONSOLE LOG: Success
       console.log(`[createBooking] Successfully created booking ID: ${booking.id}`);
+
+      // Audit Trail
+      await this.auditService.log(
+        customerId,
+        'CREATE_BOOKING',
+        'BOOKING', // Resource type
+        booking.id,
+      );
 
       return booking;
     } catch (err) {
@@ -267,27 +277,38 @@ async updateBookingStatus(id: string, dto: UpdateBookingStatusDto, mechanicId: s
             throw new ForbiddenException('You cannot update this booking');
         }
 
-        // 3. Update the booking status in the database
-        const updatedBooking = await this.prisma.booking.update({
-            where: { id },
-            data: { status: dto.status },
+        // 3. Use a transaction for atomic updates
+        const updatedBooking = await this.prisma.$transaction(async (tx) => {
+            const bookingUpdate = await tx.booking.update({
+                where: { id },
+                data: { status: dto.status },
+            });
+
+            // 4. Conditional Business Logic: Execute payment/wallet/notification only if status is COMPLETED
+            if (dto.status === BookingStatus.COMPLETED) {
+                this.logger.log(`[updateBookingStatus] Booking ${id} completed. Initiating payment and notification.`);
+                
+                // These calls rely on the injected services: paymentService, walletService, notificationGateway
+                await this.paymentService.capturePayment(booking.id);
+                await this.walletService.creditMechanicWithTx(tx, booking.mechanicId, booking.price, booking.id);
+                
+                this.logger.log(`[updateBookingStatus] Post-completion actions successful for booking ${id}.`);
+            }
+            return bookingUpdate;
         });
 
-        // 4. Conditional Business Logic: Execute payment/wallet/notification only if status is COMPLETED
+        // Notifications and Audit Logs should be outside the transaction
         if (dto.status === BookingStatus.COMPLETED) {
-            // NOTE: These are crucial operations and should ideally be wrapped in a transaction 
-            // or handled via an event bus for robustness/retries, but for a direct refactor:
-            
-            this.logger.log(`[updateBookingStatus] Booking ${id} completed. Initiating payment and notification.`);
-            
-            // Assuming 'booking.id' is the payment ID, 'booking.price' is the amount, etc.
-            // These calls rely on the injected services: paymentService, walletService, notificationGateway
-            await this.paymentService.capturePayment(booking.id);
-            await this.walletService.creditMechanic(booking.mechanicId, booking.price, booking.id);
             await this.notificationGateway.emitBookingCompleted(booking.customerId, booking.id);
-
-            this.logger.log(`[updateBookingStatus] Post-completion actions successful for booking ${id}.`);
         }
+
+        // Audit Trail
+        await this.auditService.log(
+            mechanicId, 
+            'UPDATE_BOOKING_STATUS', 
+            'BOOKING',  // Resource type
+            id, { newStatus: dto.status }
+        );
 
         this.logger.log(`[updateBookingStatus] Successfully updated booking ${id}`);
         // 💡 CONSOLE LOG: Success
@@ -385,6 +406,14 @@ async cancelBooking(id: string, customerId: string) {
         // 5. Notification
         // Notify the mechanic that their booking has been cancelled
         await this.notificationGateway.emitBookingCancelled(booking.mechanicId, booking.id);
+
+        // Audit Trail
+        await this.auditService.log(
+            customerId,
+            'CANCEL_BOOKING',
+            'BOOKING', // Resource type
+            id,
+        );
         this.logger.log(`[cancelBooking] Mechanic ${booking.mechanicId} notified of cancellation.`);
 
 

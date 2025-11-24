@@ -12,6 +12,7 @@ import {
 import { PrismaService } from 'prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
 import { PaymentService } from '../paymnet/payment.services';
+import { AuditService } from 'src/audit/audit.service';
 
 @Injectable()
 export class DisputeService {
@@ -22,6 +23,7 @@ export class DisputeService {
         // CRITICAL: Inject the services needed for financial resolution
         private readonly walletService: WalletService,
         private readonly paymentService: PaymentService,
+        private readonly auditService: AuditService,
     ) {}
 
     // ------------------------------------
@@ -44,7 +46,7 @@ export class DisputeService {
 
         // 2. Creation
         try {
-            return this.prisma.dispute.create({
+            const dispute = await this.prisma.dispute.create({
                 data: { 
                     userId, 
                     bookingId, 
@@ -54,6 +56,15 @@ export class DisputeService {
                     // this assumes the customer is raising it.
                 },
             });
+
+            // Audit Trail
+            await this.auditService.log(
+                userId,
+                'RAISE_DISPUTE',
+                'DISPUTE', // Resource type
+                dispute.id,
+            );
+            return dispute;
         } catch (error) {
             this.logger.error(`${operation} failed.`, error);
             throw new InternalServerErrorException('Failed to record dispute.');
@@ -70,6 +81,7 @@ export class DisputeService {
         isRefundToCustomer: boolean,
         isDebitMechanic: boolean,
     ) {
+        const adminUserId = 'SYSTEM_ADMIN_ID'; // Placeholder for the admin user resolving the dispute
         const operation = `Resolve dispute ${disputeId}`;
 
         // 1. Fetch and Validate Dispute Status/Data
@@ -77,7 +89,7 @@ export class DisputeService {
             where: { id: disputeId },
             include: { 
                 booking: { 
-                    select: { customerId: true, mechanicId: true, paymentReference: true } 
+                    select: { id: true, customerId: true, mechanicId: true, paymentId: true } 
                 } 
             }
         });
@@ -86,43 +98,55 @@ export class DisputeService {
         if (!dispute.booking) throw new InternalServerErrorException('Dispute is not linked to a valid booking.');
         if (refundAmount < 0) throw new BadRequestException('Refund amount must be non-negative.');
         
-        const { paymentReference, mechanicId, customerId } = dispute.booking;
+        const { paymentId, mechanicId } = dispute.booking;
 
         try {
-            // 2. FINANCIAL RESOLUTION (Executed atomically if possible)
-            if (refundAmount > 0) {
-                if (isRefundToCustomer) {
-                    // Refund customer via original payment method
-                    if (!paymentReference) throw new InternalServerErrorException('Cannot refund: Payment reference missing.');
-
-                    // The payment service handles the gateway API call
-                    await this.paymentService.refundPayment(paymentReference, refundAmount);
-                    this.logger.log(`Customer refund initiated for ${refundAmount} via gateway.`);
+            // 2. FINANCIAL RESOLUTION (Executed atomically)
+            const updatedDispute = await this.prisma.$transaction(async (tx) => {
+                if (refundAmount > 0) {
+                    if (isRefundToCustomer) {
+                        // Refund customer via original payment method
+                        if (!paymentId) throw new InternalServerErrorException('Cannot refund: Payment reference missing.');
+    
+                        // The payment service handles the gateway API call
+                        await this.paymentService.refundPayment(paymentId, refundAmount);
+                        this.logger.log(`Customer refund initiated for ${refundAmount} via gateway.`);
+                    }
+                    
+                    if (isDebitMechanic) {
+                        // Debit mechanic's internal wallet (e.g., as penalty or adjustment)
+                        await this.walletService.debitWalletWithTx(
+                            tx,
+                            mechanicId,
+                            refundAmount, 
+                            'DISPUTE_DEBIT', 
+                            dispute.bookingId
+                        );
+                        this.logger.log(`Mechanic ${mechanicId} debited ${refundAmount} from wallet.`);
+                    }
                 }
                 
-                if (isDebitMechanic) {
-                    // Debit mechanic's internal wallet (e.g., as penalty or adjustment)
-                    await this.walletService.debitWallet(
-                        mechanicId, 
-                        refundAmount, 
-                        'DISPUTE_DEBIT', 
-                        dispute.bookingId
-                    );
-                    this.logger.log(`Mechanic ${mechanicId} debited ${refundAmount} from wallet.`);
-                }
-            }
-            
-            // 3. UPDATE DISPUTE STATUS (Must occur after financial action succeeds)
-            return this.prisma.dispute.update({
-                where: { id: disputeId },
-                data: {
-                    status: 'resolved', 
-                    resolution, 
-                    resolvedAt: new Date(),
-                    // IDEA: Add a field to store the refund amount and target for auditing
-                    resolvedAmount: refundAmount, 
-                },
+                // 3. UPDATE DISPUTE STATUS (Must occur after financial action succeeds)
+                return tx.dispute.update({
+                    where: { id: disputeId },
+                    data: {
+                        status: 'resolved', 
+                        resolution, 
+                        updatedAt: new Date(),
+                        resolvedAmount: refundAmount, 
+                    },
+                });
             });
+
+            // Audit Trail
+            await this.auditService.log(
+                adminUserId, 
+                'RESOLVE_DISPUTE', 
+                'DISPUTE', // Resource type
+                disputeId, { resolution, refundAmount }
+            );
+
+            return updatedDispute;
 
         } catch (error) {
             this.logger.error(`${operation} failed during financial step.`, error);

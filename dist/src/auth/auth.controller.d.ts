@@ -3,24 +3,7 @@ import { RegisterUserDto, LoginDto, ForgotPasswordDto, ResetPasswordDto, Refresh
 export declare class AuthController {
     private readonly authService;
     constructor(authService: AuthService);
-    register(dto: RegisterUserDto): Promise<{
-        id: string;
-        email: string;
-        firstName: string | null;
-        lastName: string | null;
-        role: import(".prisma/client").$Enums.Role;
-        status: import(".prisma/client").$Enums.Status;
-        shopName: string | null;
-        location: string | null;
-        createdAt: Date;
-        updatedAt: Date;
-        experienceYears: number | null;
-        profilePictureUrl: string | null;
-        bio: string | null;
-        certificationUrls: string[];
-        deletedAt: Date | null;
-        lastLogin: Date | null;
-    }>;
+    register(dto: RegisterUserDto): Promise<any>;
     login(dto: LoginDto): Promise<{
         accessToken: string;
         refreshToken: string;
