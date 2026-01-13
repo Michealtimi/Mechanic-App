@@ -14,94 +14,97 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BookingController = void 0;
 const common_1 = require("@nestjs/common");
-const swagger_1 = require("@nestjs/swagger");
 const booking_service_1 = require("./booking.service");
-const update_booking_status_dto_1 = require("./dto/update-booking-status.dto");
-const jwt_guard_1 = require("../auth/jwt.guard");
-const roles_guards_1 = require("../common/guard/roles.guards");
-const creating_booking_dto_1 = require("./dto/creating-booking.dto");
-const booking_filter_dto_1 = require("./dto/booking-filter.dto");
-const bookingresponse_dto_1 = require("./dto/bookingresponse.dto");
-const roles_decorators_1 = require("../common/decorators/roles.decorators");
+const booking_dto_1 = require("./dto/booking.dto");
+const jwt_auth_guard_1 = require("src/auth/guards/jwt-auth.guard");
+const roles_guard_1 = require("src/auth/guards/roles.guard");
+const roles_decorator_1 = require("src/auth/decorators/roles.decorator");
+const client_1 = require("@prisma/client");
+const class_transformer_1 = require("class-transformer");
 let BookingController = class BookingController {
     bookingService;
     constructor(bookingService) {
         this.bookingService = bookingService;
     }
-    async createBooking(req, dto) {
-        return this.bookingService.createBooking(dto, req.user.id);
+    async createBooking(createBookingDto, req) {
+        const customerId = req.user.id;
+        const { booking, payment } = await this.bookingService.createBooking(createBookingDto, customerId);
+        return (0, class_transformer_1.plainToInstance)(booking_dto_1.BookingResponseDto, booking, { excludeExtraneousValues: true });
     }
-    async getBookings(req, filter) {
-        return this.bookingService.getAllBookings(req.user.id, filter);
+    async getAllBookings(req, filterDto) {
+        const userId = req.user.id;
+        const { data, meta } = await this.bookingService.getAllBookings(userId, filterDto);
+        return {
+            data: (0, class_transformer_1.plainToInstance)(booking_dto_1.BookingResponseDto, data, { excludeExtraneousValues: true }),
+            meta,
+        };
     }
     async getBookingById(id, req) {
-        return this.bookingService.getBookingById(id, req.user.id);
+        const userId = req.user.id;
+        const booking = await this.bookingService.getBookingById(id, userId);
+        return (0, class_transformer_1.plainToInstance)(booking_dto_1.BookingResponseDto, booking, { excludeExtraneousValues: true });
     }
-    async updateStatus(id, dto, req) {
-        return this.bookingService.updateBookingStatus(id, dto, req.user.id);
+    async updateBookingStatus(id, updateBookingStatusDto, req) {
+        const mechanicId = req.user.id;
+        const updatedBooking = await this.bookingService.updateBookingStatus(id, updateBookingStatusDto, mechanicId);
+        return (0, class_transformer_1.plainToInstance)(booking_dto_1.BookingResponseDto, updatedBooking, { excludeExtraneousValues: true });
     }
     async cancelBooking(id, req) {
-        return this.bookingService.cancelBooking(id, req.user.id);
+        const customerId = req.user.id;
+        const cancelledBooking = await this.bookingService.cancelBooking(id, customerId);
+        return (0, class_transformer_1.plainToInstance)(booking_dto_1.BookingResponseDto, cancelledBooking, { excludeExtraneousValues: true });
     }
 };
 exports.BookingController = BookingController;
 __decorate([
-    (0, common_1.Post)('create'),
-    (0, roles_decorators_1.Roles)('CUSTOMER'),
-    (0, swagger_1.ApiOperation)({ summary: 'Create a booking' }),
-    (0, swagger_1.ApiResponse)({ status: 201, type: bookingresponse_dto_1.BookingResponseDto }),
-    __param(0, (0, common_1.Request)()),
-    __param(1, (0, common_1.Body)()),
+    (0, common_1.Post)(),
+    (0, roles_decorator_1.Roles)(client_1.Role.CUSTOMER),
+    (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, creating_booking_dto_1.CreateBookingDto]),
+    __metadata("design:paramtypes", [booking_dto_1.CreateBookingDto, Object]),
     __metadata("design:returntype", Promise)
 ], BookingController.prototype, "createBooking", null);
 __decorate([
     (0, common_1.Get)(),
-    (0, swagger_1.ApiOperation)({ summary: 'Get all bookings for logged-in user' }),
-    __param(0, (0, common_1.Request)()),
+    __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Query)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, booking_filter_dto_1.BookingFilterDto]),
+    __metadata("design:paramtypes", [Object, booking_dto_1.BookingFilterDto]),
     __metadata("design:returntype", Promise)
-], BookingController.prototype, "getBookings", null);
+], BookingController.prototype, "getAllBookings", null);
 __decorate([
     (0, common_1.Get)(':id'),
-    (0, swagger_1.ApiOperation)({ summary: 'Get booking by ID' }),
-    (0, swagger_1.ApiParam)({ name: 'id', example: 'uuid-booking' }),
     __param(0, (0, common_1.Param)('id')),
-    __param(1, (0, common_1.Request)()),
+    __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], BookingController.prototype, "getBookingById", null);
 __decorate([
-    (0, common_1.Patch)(':id/status'),
-    (0, roles_decorators_1.Roles)('MECHANIC'),
-    (0, swagger_1.ApiOperation)({ summary: 'Update booking status (mechanic only)' }),
+    (0, common_1.Put)(':id/status'),
+    (0, roles_decorator_1.Roles)(client_1.Role.MECHANIC),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
-    __param(2, (0, common_1.Request)()),
+    __param(2, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, update_booking_status_dto_1.UpdateBookingStatusDto, Object]),
+    __metadata("design:paramtypes", [String, booking_dto_1.UpdateBookingStatusDto, Object]),
     __metadata("design:returntype", Promise)
-], BookingController.prototype, "updateStatus", null);
+], BookingController.prototype, "updateBookingStatus", null);
 __decorate([
-    (0, common_1.Delete)(':id'),
-    (0, roles_decorators_1.Roles)('CUSTOMER'),
-    (0, common_1.HttpCode)(common_1.HttpStatus.NO_CONTENT),
-    (0, swagger_1.ApiOperation)({ summary: 'Cancel booking (customer only)' }),
+    (0, common_1.Put)(':id/cancel'),
+    (0, roles_decorator_1.Roles)(client_1.Role.CUSTOMER),
     __param(0, (0, common_1.Param)('id')),
-    __param(1, (0, common_1.Request)()),
+    __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], BookingController.prototype, "cancelBooking", null);
 exports.BookingController = BookingController = __decorate([
-    (0, swagger_1.ApiTags)('Bookings'),
-    (0, swagger_1.ApiBearerAuth)(),
-    (0, common_1.UseGuards)(jwt_guard_1.JwtAuthGuard, roles_guards_1.RolesGuard),
-    (0, common_1.Controller)('booking'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, common_1.UseInterceptors)(common_1.ClassSerializerInterceptor),
+    (0, common_1.Controller)('bookings'),
     __metadata("design:paramtypes", [booking_service_1.BookingService])
 ], BookingController);
 //# sourceMappingURL=booking.controller.js.map

@@ -18,10 +18,11 @@ import {
   LoginDto,
   RegisterUserDto,
   ResetPasswordDto,
+  MechanicStatus, // Import MechanicStatus enum
 } from './dto/auth.dto';
-import { Role, User } from '@prisma/client';
+
+import { Role, } from '@prisma/client';
 import { plainToInstance } from 'class-transformer';
-import { UserResponseDto } from 'src/users/dto/user-response.dto';
 import { MailService } from 'src/utils/mail.service';
 
 @Injectable()
@@ -38,11 +39,11 @@ export class AuthService {
   /* ----------------- REGISTER (Public & Admin Registration) ----------------- */
   /**
    * Register a new user with specific role and data.
+   * Handles mechanic-specific fields if the role is MECHANIC.
    */
   async register(dto: RegisterUserDto) {
     try {
-      // 💡 CONSOLE LOG: Start of operation
-      console.log(`Attempting registration for email: ${dto.email}`);
+      this.logger.log(`Attempting registration for email: ${dto.email}, role: ${dto.role}`);
 
       const exists = await this.prisma.user.findUnique({
         where: { email: dto.email },
@@ -56,43 +57,51 @@ export class AuthService {
 
       const hashedPassword = await this.hashPassword(dto.password);
 
+      // Prepare common user data
+      const userData: any = {
+        email: dto.email,
+        password: hashedPassword,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        role: dto.role, // Prisma should automatically cast from string to enum if type matches
+      };
+
+      // Handle mechanic-specific fields
+      if (dto.role === Role.MECHANIC) {
+        userData.isEvSpecialist = dto.isEvSpecialist ?? false; // Default to false if not provided
+        userData.serviceRadiusKm = dto.serviceRadiusKm ?? 0;   // Default to 0 if not provided
+        userData.bio = dto.bio ?? '';                         // Default to empty string
+        userData.specializations = dto.specializations ?? []; // Default to empty array
+        userData.profilePictureUrl = dto.profilePictureUrl ?? null; // Default to null
+        // Initial status for a MECHANIC, defaults to PENDING if not explicitly set
+        userData.mechanicStatus = dto.status ?? MechanicStatus.PENDING;
+      }
+
       const user = await this.prisma.user.create({
-        data: {
-          email: dto.email,
-          password: hashedPassword,
-          firstName: dto.firstName,
-          lastName: dto.lastName,
-          // Fixed: Cast the string role from DTO to the Prisma Role enum
-          role: dto.role as Role,
-        },
+        data: userData,
       });
 
-      // Email sending logic is wrapped in its own try/catch to avoid blocking the main registration flow
+      // Email sending logic (unchanged)
       try {
         const userName = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim();
-        // Fixed: Corrected the number of arguments passed to sendWelcomeEmail
         await this.mailService.sendWelcomeEmail(user.email, {
           name: userName,
           role: user.role,
-          // password: dto.password, // Only include if you want to send the initial password
         });
-        // 💡 CONSOLE LOG: Email success
-        console.log(`Welcome email successfully queued for ${user.email}`);
+        this.logger.log(`Welcome email successfully queued for ${user.email}`);
       } catch (err) {
         this.logger.warn(
           `Welcome email failed for ${user.email}. Error: ${
             (err as any).message || err
           }`,
         );
-        // Do not re-throw here, registration succeeded.
       }
 
-      this.logger.log(`User registered successfully with ID: ${user.id}`);
-      const { password, ...rest } = user;
-      return rest;
+      this.logger.log(`User registered successfully with ID: ${user.id} and role: ${user.role}`);
+      const { password, ...rest } = user; // Exclude password from the response
+      return plainToInstance(UserResponseDto, rest, { excludeExtraneousValues: true });
     } catch (err) {
       this.logger.error(`Failed to register user ${dto.email}`, err.stack);
-      // Re-throw specific client errors
       if (err instanceof BadRequestException) {
         throw err;
       }
@@ -102,12 +111,11 @@ export class AuthService {
 
   /* ----------------- LOGIN ----------------- */
   /**
-   * Authenticate a user and generate JWTs.
+   * Authenticate a user, generate JWTs, and update lastLogin timestamp.
    */
   async login(dto: LoginDto) {
     try {
-      // 💡 CONSOLE LOG: Start of operation
-      console.log(`Attempting login for email: ${dto.email}`);
+      this.logger.log(`Attempting login for email: ${dto.email}`);
 
       const user = await this.prisma.user.findUnique({
         where: { email: dto.email },
@@ -133,26 +141,26 @@ export class AuthService {
         user.role,
       );
 
-      await this.prisma.user.update({
+      // Update lastLogin timestamp
+      const updatedUser = await this.prisma.user.update({
         where: { id: user.id },
         data: { lastLogin: new Date() },
       });
 
       this.logger.log(`User logged in and lastLogin updated for ID: ${user.id}`);
-      // 💡 CONSOLE LOG: Login success
-      console.log(`Login successful for user ID: ${user.id}`);
+      this.logger.log(`Login successful for user ID: ${user.id}`);
 
+      // Use the updatedUser for the response to reflect lastLogin change
       return {
         success: true,
         message: 'Login successful',
-        user: plainToInstance(UserResponseDto, user, {
+        user: plainToInstance(UserResponseDto, updatedUser, {
           excludeExtraneousValues: true,
         }),
         ...tokens,
       };
     } catch (err) {
       this.logger.error(`Failed to log in user ${dto.email}`, err.stack);
-      // Re-throw specific client errors
       if (err instanceof UnauthorizedException) {
         throw err;
       }
@@ -161,13 +169,9 @@ export class AuthService {
   }
 
   /* ----------------- LOGOUT ----------------- */
-  /**
-   * Revoke a refresh token to log out a user.
-   */
+  // (No changes needed)
   async logout(refreshToken: string) {
-    // 💡 CONSOLE LOG: Start of operation
-    console.log('Logout initiated.');
-
+    this.logger.log('Logout initiated.');
     try {
       const payload: any = await this.jwtService.verifyAsync(refreshToken, {
         secret: this.config.get<string>('JWT_REFRESH_SECRET'),
@@ -187,31 +191,23 @@ export class AuthService {
         data: { revoked: true },
       });
       this.logger.log(`Refresh token with ID ${jti} successfully revoked.`);
-      // 💡 CONSOLE LOG: Logout success
-      console.log(`Token ${jti} revoked.`);
+      this.logger.log(`Token ${jti} revoked.`);
 
       return { message: 'Logged out' };
     } catch (err) {
       this.logger.error(`Failed to logout (revoke token)`, err.stack);
-      // Re-throw specific client errors
       if (err instanceof BadRequestException || err instanceof ForbiddenException) {
-        // Forbidden would be thrown if the token is completely invalid/expired during verify
         throw err;
       }
-      // Return a gentle success even on error to prevent attacker knowledge on token validity
-      return { message: 'Logged out' };
+      return { message: 'Logged out' }; // Fail-safe: return success to prevent attacker knowledge on token validity
     }
   }
 
   /* ----------------- REFRESH ----------------- */
-  /**
-   * Use a valid refresh token to get a new access token.
-   */
+  // (No changes needed)
   async refreshToken(refreshToken: string) {
+    this.logger.log('Token refresh request started.');
     try {
-      // 💡 CONSOLE LOG: Start of operation
-      console.log('Token refresh request started.');
-
       let payload: any;
       try {
         payload = await this.jwtService.verifyAsync(refreshToken, {
@@ -224,8 +220,7 @@ export class AuthService {
 
       const jti = payload.jti;
       const userId = payload.sub;
-      // 💡 CONSOLE LOG: Payload details
-      console.log(`Processing refresh for user ${userId} and token ID ${jti}`);
+      this.logger.log(`Processing refresh for user ${userId} and token ID ${jti}`);
 
       const stored = await this.prisma.refreshToken.findUnique({
         where: { id: jti },
@@ -277,12 +272,10 @@ export class AuthService {
         user.role,
       );
       this.logger.log(`New access and refresh tokens issued for user ${user.id}`);
-      // 💡 CONSOLE LOG: Success
-      console.log(`Successfully issued new tokens for user ${user.id}`);
+      this.logger.log(`Successfully issued new tokens for user ${user.id}`);
       return newTokens;
     } catch (err) {
       this.logger.error(`Failed to refresh token`, err.stack);
-      // Re-throw specific client errors
       if (err instanceof ForbiddenException) {
         throw err;
       }
@@ -291,22 +284,14 @@ export class AuthService {
   }
 
   /* ----------------- FORGOT PASSWORD ----------------- */
-  /**
-   * Generate a password reset link and send it via email.
-   * NOTE: No changes to this method's overall structure, as it must fail gracefully
-   * to prevent user enumeration, which conflicts with standard error propagation.
-   */
+  // (No changes needed, already designed for graceful failure)
   async forgotPassword(dto: ForgotPasswordDto) {
     this.logger.log(`Password reset requested for email: ${dto.email}`);
-    // 💡 CONSOLE LOG: Start of operation
-    console.log(`Checking user existence for password reset: ${dto.email}`);
-
     try {
       const user = await this.prisma.user.findUnique({
         where: { email: dto.email },
       });
 
-      // Fail gracefully to prevent user enumeration attacks
       if (!user) {
         this.logger.log(
           'User not found. Returning generic success message to prevent user enumeration.',
@@ -335,27 +320,18 @@ export class AuthService {
         `,
       );
       this.logger.log(`Password reset email sent to ${user.email}`);
-      // 💡 CONSOLE LOG: Email success
-      console.log(`Password reset email sent to ${user.email}`);
-
       return { message: 'If an account exists, a reset link was sent.' };
     } catch (err) {
       this.logger.error(`Failed to process forgot password for ${dto.email}`, err.stack);
-      // Re-throw specific client errors only if it's NOT the email sending error
-      // In this case, we throw a generic one unless it's a known client error (none here)
       throw new InternalServerErrorException('Failed to process password reset');
     }
   }
 
   /* ----------------- RESET PASSWORD ----------------- */
-  /**
-   * Reset a user's password using a valid reset token.
-   */
+  // (No changes needed)
   async resetPassword(dto: ResetPasswordDto) {
+    this.logger.log('Password reset request with token received.');
     try {
-      // 💡 CONSOLE LOG: Start of operation
-      console.log('Password reset request with token received.');
-
       let payload: any;
       try {
         payload = await this.jwtService.verifyAsync(dto.token, {
@@ -367,8 +343,7 @@ export class AuthService {
       }
 
       const userId = payload.sub;
-      // 💡 CONSOLE LOG: Processing user ID
-      console.log(`Processing password reset for user ID: ${userId}`);
+      this.logger.log(`Processing password reset for user ID: ${userId}`);
 
       const user = await this.prisma.user.findUnique({ where: { id: userId } });
       if (!user) {
@@ -384,13 +359,9 @@ export class AuthService {
         data: { password: hashed },
       });
       this.logger.log(`Password successfully reset for user ID: ${userId}`);
-      // 💡 CONSOLE LOG: Success
-      console.log(`Password successfully reset for user ID: ${userId}`);
-
       return { message: 'Password reset successful' };
     } catch (err) {
       this.logger.error(`Failed to reset password for token`, err.stack);
-      // Re-throw specific client errors
       if (err instanceof ForbiddenException || err instanceof BadRequestException) {
         throw err;
       }
@@ -413,12 +384,9 @@ export class AuthService {
     email: string,
     role: Role,
   ) {
+    this.logger.log(`Generating tokens and storing refresh for user ${userId}`);
     try {
-      // 💡 CONSOLE LOG: Start of operation
-      console.log(`Generating tokens and storing refresh for user ${userId}`);
-
       const jti = uuidv4();
-
       const accessPayload = { sub: userId, email, role: role as string };
       const refreshPayload = { sub: userId, email, role: role as string, jti };
 
@@ -449,8 +417,7 @@ export class AuthService {
           expiresAt,
         },
       });
-      // 💡 CONSOLE LOG: Refresh token saved
-      console.log(`Refresh token (ID: ${jti}) saved successfully.`);
+      this.logger.log(`Refresh token (ID: ${jti}) saved successfully.`);
 
       return { accessToken, refreshToken };
     } catch (err) {

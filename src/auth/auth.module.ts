@@ -9,7 +9,7 @@ import { AuthController } from './auth.controller';
 import { MailService } from '../utils/mail.service';
 
 import { RolesGuard } from 'src/common/guard/roles.guards';
-import { JwtStrategy } from './jwt.strategy';
+import { JwtStrategy } from './guard/jwt.strategy';
 import { PrismaService } from 'prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 

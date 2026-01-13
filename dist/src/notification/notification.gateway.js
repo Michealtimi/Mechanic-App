@@ -15,11 +15,13 @@ const websockets_1 = require("@nestjs/websockets");
 const common_1 = require("@nestjs/common");
 const socket_io_1 = require("socket.io");
 const jwt_1 = require("@nestjs/jwt");
-let NotificationGateway = NotificationGateway_1 = class NotificationGateway {
+let NotificationGateway = class NotificationGateway {
+    static { NotificationGateway_1 = this; }
     jwtService;
     server;
     logger = new common_1.Logger(NotificationGateway_1.name);
     connectedUsers = new Map();
+    static ADMIN_ROOM = 'admins';
     constructor(jwtService) {
         this.jwtService = jwtService;
     }
@@ -32,10 +34,14 @@ let NotificationGateway = NotificationGateway_1 = class NotificationGateway {
         try {
             const payload = this.jwtService.verify(token);
             const userId = payload.sub || payload.id;
+            const userRole = payload.role;
             this.connectedUsers.set(userId, socket.id);
             socket.userId = userId;
             socket.join(userId);
-            this.logger.log(`User connected (verified): ${userId}`);
+            if (userRole === 'ADMIN' || userRole === 'SUPERADMIN') {
+                socket.join(NotificationGateway_1.ADMIN_ROOM);
+            }
+            this.logger.log(`User connected (verified): ${userId} (${userRole})`);
         }
         catch (e) {
             this.logger.error('Unauthorized WebSocket connection attempt. Token invalid.', e.message);
@@ -57,14 +63,29 @@ let NotificationGateway = NotificationGateway_1 = class NotificationGateway {
         }
         return false;
     }
-    emitBookingCancelled(mechanicId, bookingId) {
-        this.emitToUser(mechanicId, 'bookingCancelled', { bookingId });
+    emitToAdmin(event, payload) {
+        this.server.to(NotificationGateway_1.ADMIN_ROOM).emit(event, payload);
+        this.logger.debug(`Emitted event ${event} to Admin Room.`);
     }
-    sendBookingCompleted(userId, bookingId) {
-        this.emitToUser(userId, 'bookingCompleted', { bookingId, message: 'Your booking is complete!' });
+    async emitBookingCompleted(userId, bookingId) {
+        const payload = { bookingId, status: 'completed', message: 'Your booking has been successfully completed.' };
+        this.emitToUser(userId, 'booking.completed', payload);
     }
-    emitBookingCompleted(userId, bookingId) {
-        this.sendBookingCompleted(userId, bookingId);
+    async emitBookingCancelled(userId, bookingId) {
+        const payload = { bookingId, status: 'cancelled', message: 'Your booking has been cancelled.' };
+        this.emitToUser(userId, 'booking.cancelled', payload);
+        this.emitToAdmin('admin.bookingCancelled', payload);
+    }
+    async emitDisputeOpened(customerId, mechanicId, bookingId) {
+        const payload = { bookingId, status: 'disputed', message: 'A new dispute related to your booking has been opened.' };
+        this.emitToUser(customerId, 'dispute.opened', payload);
+        this.emitToUser(mechanicId, 'dispute.opened', payload);
+        this.emitToAdmin('admin.disputeAlert', {
+            bookingId,
+            customerId,
+            mechanicId,
+            message: 'A new dispute requires review.'
+        });
     }
 };
 exports.NotificationGateway = NotificationGateway;

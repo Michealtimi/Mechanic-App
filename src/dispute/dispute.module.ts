@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { DisputeService } from './dispute.service';
 import { PrismaModule } from 'prisma/prisma.module';
 import { WalletModule } from '../wallet/wallet.module';
-import { PaymentModule } from 'src/paymnet/payment.module';
+import { PaymentModule } from 'src/paymnet/payments.module';
 import { DisputeController } from './dispute.controller';
 import { AuditModule } from 'src/audit/audit.module';
 

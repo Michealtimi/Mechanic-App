@@ -17,8 +17,9 @@ const prisma_service_1 = require("../../prisma/prisma.service");
 const bcrypt = require("bcryptjs");
 const config_1 = require("@nestjs/config");
 const uuid_1 = require("uuid");
+const auth_dto_1 = require("./dto/auth.dto");
+const client_1 = require("@prisma/client");
 const class_transformer_1 = require("class-transformer");
-const user_response_dto_1 = require("../users/dto/user-response.dto");
 const mail_service_1 = require("../utils/mail.service");
 let AuthService = AuthService_1 = class AuthService {
     prisma;
@@ -34,7 +35,7 @@ let AuthService = AuthService_1 = class AuthService {
     }
     async register(dto) {
         try {
-            console.log(`Attempting registration for email: ${dto.email}`);
+            this.logger.log(`Attempting registration for email: ${dto.email}, role: ${dto.role}`);
             const exists = await this.prisma.user.findUnique({
                 where: { email: dto.email },
             });
@@ -43,14 +44,23 @@ let AuthService = AuthService_1 = class AuthService {
                 throw new common_1.BadRequestException('Email already in use');
             }
             const hashedPassword = await this.hashPassword(dto.password);
+            const userData = {
+                email: dto.email,
+                password: hashedPassword,
+                firstName: dto.firstName,
+                lastName: dto.lastName,
+                role: dto.role,
+            };
+            if (dto.role === client_1.Role.MECHANIC) {
+                userData.isEvSpecialist = dto.isEvSpecialist ?? false;
+                userData.serviceRadiusKm = dto.serviceRadiusKm ?? 0;
+                userData.bio = dto.bio ?? '';
+                userData.specializations = dto.specializations ?? [];
+                userData.profilePictureUrl = dto.profilePictureUrl ?? null;
+                userData.mechanicStatus = dto.status ?? auth_dto_1.MechanicStatus.PENDING;
+            }
             const user = await this.prisma.user.create({
-                data: {
-                    email: dto.email,
-                    password: hashedPassword,
-                    firstName: dto.firstName,
-                    lastName: dto.lastName,
-                    role: dto.role,
-                },
+                data: userData,
             });
             try {
                 const userName = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim();
@@ -58,14 +68,14 @@ let AuthService = AuthService_1 = class AuthService {
                     name: userName,
                     role: user.role,
                 });
-                console.log(`Welcome email successfully queued for ${user.email}`);
+                this.logger.log(`Welcome email successfully queued for ${user.email}`);
             }
             catch (err) {
                 this.logger.warn(`Welcome email failed for ${user.email}. Error: ${err.message || err}`);
             }
-            this.logger.log(`User registered successfully with ID: ${user.id}`);
+            this.logger.log(`User registered successfully with ID: ${user.id} and role: ${user.role}`);
             const { password, ...rest } = user;
-            return rest;
+            return (0, class_transformer_1.plainToInstance)(UserResponseDto, rest, { excludeExtraneousValues: true });
         }
         catch (err) {
             this.logger.error(`Failed to register user ${dto.email}`, err.stack);
@@ -77,7 +87,7 @@ let AuthService = AuthService_1 = class AuthService {
     }
     async login(dto) {
         try {
-            console.log(`Attempting login for email: ${dto.email}`);
+            this.logger.log(`Attempting login for email: ${dto.email}`);
             const user = await this.prisma.user.findUnique({
                 where: { email: dto.email },
             });
@@ -91,16 +101,16 @@ let AuthService = AuthService_1 = class AuthService {
                 throw new common_1.UnauthorizedException('Invalid credentials');
             }
             const tokens = await this.getTokensAndStoreRefresh(user.id, user.email, user.role);
-            await this.prisma.user.update({
+            const updatedUser = await this.prisma.user.update({
                 where: { id: user.id },
                 data: { lastLogin: new Date() },
             });
             this.logger.log(`User logged in and lastLogin updated for ID: ${user.id}`);
-            console.log(`Login successful for user ID: ${user.id}`);
+            this.logger.log(`Login successful for user ID: ${user.id}`);
             return {
                 success: true,
                 message: 'Login successful',
-                user: (0, class_transformer_1.plainToInstance)(user_response_dto_1.UserResponseDto, user, {
+                user: (0, class_transformer_1.plainToInstance)(UserResponseDto, updatedUser, {
                     excludeExtraneousValues: true,
                 }),
                 ...tokens,
@@ -115,7 +125,7 @@ let AuthService = AuthService_1 = class AuthService {
         }
     }
     async logout(refreshToken) {
-        console.log('Logout initiated.');
+        this.logger.log('Logout initiated.');
         try {
             const payload = await this.jwtService.verifyAsync(refreshToken, {
                 secret: this.config.get('JWT_REFRESH_SECRET'),
@@ -133,7 +143,7 @@ let AuthService = AuthService_1 = class AuthService {
                 data: { revoked: true },
             });
             this.logger.log(`Refresh token with ID ${jti} successfully revoked.`);
-            console.log(`Token ${jti} revoked.`);
+            this.logger.log(`Token ${jti} revoked.`);
             return { message: 'Logged out' };
         }
         catch (err) {
@@ -145,8 +155,8 @@ let AuthService = AuthService_1 = class AuthService {
         }
     }
     async refreshToken(refreshToken) {
+        this.logger.log('Token refresh request started.');
         try {
-            console.log('Token refresh request started.');
             let payload;
             try {
                 payload = await this.jwtService.verifyAsync(refreshToken, {
@@ -159,7 +169,7 @@ let AuthService = AuthService_1 = class AuthService {
             }
             const jti = payload.jti;
             const userId = payload.sub;
-            console.log(`Processing refresh for user ${userId} and token ID ${jti}`);
+            this.logger.log(`Processing refresh for user ${userId} and token ID ${jti}`);
             const stored = await this.prisma.refreshToken.findUnique({
                 where: { id: jti },
             });
@@ -196,7 +206,7 @@ let AuthService = AuthService_1 = class AuthService {
             }
             const newTokens = await this.getTokensAndStoreRefresh(user.id, user.email, user.role);
             this.logger.log(`New access and refresh tokens issued for user ${user.id}`);
-            console.log(`Successfully issued new tokens for user ${user.id}`);
+            this.logger.log(`Successfully issued new tokens for user ${user.id}`);
             return newTokens;
         }
         catch (err) {
@@ -209,7 +219,6 @@ let AuthService = AuthService_1 = class AuthService {
     }
     async forgotPassword(dto) {
         this.logger.log(`Password reset requested for email: ${dto.email}`);
-        console.log(`Checking user existence for password reset: ${dto.email}`);
         try {
             const user = await this.prisma.user.findUnique({
                 where: { email: dto.email },
@@ -227,7 +236,6 @@ let AuthService = AuthService_1 = class AuthService {
           <p>If you didn't request this, please ignore this email.</p>
         `);
             this.logger.log(`Password reset email sent to ${user.email}`);
-            console.log(`Password reset email sent to ${user.email}`);
             return { message: 'If an account exists, a reset link was sent.' };
         }
         catch (err) {
@@ -236,8 +244,8 @@ let AuthService = AuthService_1 = class AuthService {
         }
     }
     async resetPassword(dto) {
+        this.logger.log('Password reset request with token received.');
         try {
-            console.log('Password reset request with token received.');
             let payload;
             try {
                 payload = await this.jwtService.verifyAsync(dto.token, {
@@ -249,7 +257,7 @@ let AuthService = AuthService_1 = class AuthService {
                 throw new common_1.ForbiddenException('Invalid or expired reset token');
             }
             const userId = payload.sub;
-            console.log(`Processing password reset for user ID: ${userId}`);
+            this.logger.log(`Processing password reset for user ID: ${userId}`);
             const user = await this.prisma.user.findUnique({ where: { id: userId } });
             if (!user) {
                 this.logger.warn(`Password reset failed: User with ID ${userId} not found.`);
@@ -261,7 +269,6 @@ let AuthService = AuthService_1 = class AuthService {
                 data: { password: hashed },
             });
             this.logger.log(`Password successfully reset for user ID: ${userId}`);
-            console.log(`Password successfully reset for user ID: ${userId}`);
             return { message: 'Password reset successful' };
         }
         catch (err) {
@@ -279,8 +286,8 @@ let AuthService = AuthService_1 = class AuthService {
         return bcrypt.compare(password, hashedPassword);
     }
     async getTokensAndStoreRefresh(userId, email, role) {
+        this.logger.log(`Generating tokens and storing refresh for user ${userId}`);
         try {
-            console.log(`Generating tokens and storing refresh for user ${userId}`);
             const jti = (0, uuid_1.v4)();
             const accessPayload = { sub: userId, email, role: role };
             const refreshPayload = { sub: userId, email, role: role, jti };
@@ -304,7 +311,7 @@ let AuthService = AuthService_1 = class AuthService {
                     expiresAt,
                 },
             });
-            console.log(`Refresh token (ID: ${jti}) saved successfully.`);
+            this.logger.log(`Refresh token (ID: ${jti}) saved successfully.`);
             return { accessToken, refreshToken };
         }
         catch (err) {

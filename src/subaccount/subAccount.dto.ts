@@ -5,10 +5,10 @@ import {
   IsString, 
   IsNumber, 
   Min, 
-  Max, 
-  IsMilitaryTime, 
-  Length, 
-  IsDigits
+  Max,  
+  Length,
+  IsNumberString, 
+  
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -29,7 +29,7 @@ export class CreateSubaccountDto {
   @IsString()
   @IsNotEmpty()
   @Length(10, 10, { message: 'Account number must be exactly 10 digits.' })
-  @IsDigits()
+  @IsNumberString()
   accountNumber: string;
 
   @ApiProperty({ description: 'The percentage charge the platform retains from transactions (1-100).', example: 10 })
@@ -40,3 +40,20 @@ export class CreateSubaccountDto {
   percentageCharge: number; // e.g., 10 = 10%
 }
 
+export class QuerySubaccountsDto {
+  @ApiProperty({ required: false, default: 1, description: 'Page number for pagination.' })
+  @IsOptional()
+  @Type(() => Number) // Converts string from query params to number
+  @IsNumber()
+  @Min(1)
+  page?: number = 1;
+
+  @ApiProperty({ required: false, default: 20, description: 'Items per page for pagination.' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  limit?: number = 20;
+
+
+}

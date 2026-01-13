@@ -11,7 +11,6 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
-var _a, _b;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SubaccountController = void 0;
 const common_1 = require("@nestjs/common");
@@ -75,7 +74,7 @@ __decorate([
     (0, swagger_1.ApiResponse)({ status: 403, description: 'Forbidden (Insufficient role).' }),
     __param(0, (0, common_1.Query)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [typeof (_b = typeof subaccount_dto_1.QuerySubaccountsDto !== "undefined" && subaccount_dto_1.QuerySubaccountsDto) === "function" ? _b : Object]),
+    __metadata("design:paramtypes", [subaccount_dto_1.QuerySubaccountsDto]),
     __metadata("design:returntype", Promise)
 ], SubaccountController.prototype, "findAll", null);
 __decorate([
@@ -95,6 +94,6 @@ exports.SubaccountController = SubaccountController = __decorate([
     (0, swagger_1.ApiBearerAuth)(),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, common_1.Controller)('subaccounts'),
-    __metadata("design:paramtypes", [typeof (_a = typeof subaccount_service_1.SubaccountService !== "undefined" && subaccount_service_1.SubaccountService) === "function" ? _a : Object])
+    __metadata("design:paramtypes", [subaccount_service_1.SubaccountService])
 ], SubaccountController);
 //# sourceMappingURL=subAccount.controller.js.map

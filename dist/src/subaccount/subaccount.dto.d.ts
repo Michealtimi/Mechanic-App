@@ -4,3 +4,7 @@ export declare class CreateSubaccountDto {
     accountNumber: string;
     percentageCharge: number;
 }
+export declare class QuerySubaccountsDto {
+    page?: number;
+    limit?: number;
+}

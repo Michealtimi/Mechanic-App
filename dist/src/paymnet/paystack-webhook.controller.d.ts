@@ -1,11 +1,12 @@
-import { PaymentService } from './payment.services';
+import { RawBodyRequest } from '@nestjs/common';
+import { PaymentsService } from './payments.service';
+import { Request } from 'express';
 export declare class PaystackWebhookController {
-    private readonly paymentService;
-    constructor(paymentService: PaymentService);
-    handlePaystackWebhook(signature: string, req: {
-        rawBody: Buffer;
-        body: any;
-    }): Promise<{
+    private readonly paymentsService;
+    private readonly logger;
+    constructor(paymentsService: PaymentsService);
+    handlePaystackWebhook(signature: string, req: RawBodyRequest<Request>): Promise<{
         received: boolean;
+        message: string;
     }>;
 }

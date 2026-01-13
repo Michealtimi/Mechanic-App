@@ -6,11 +6,13 @@ export declare class NotificationGateway implements OnGatewayConnection, OnGatew
     server: Server;
     private readonly logger;
     private connectedUsers;
+    private static readonly ADMIN_ROOM;
     constructor(jwtService: JwtService);
     handleConnection(socket: any): any;
     handleDisconnect(socket: any): void;
     emitToUser(userId: string, event: string, payload: any): boolean;
-    emitBookingCancelled(mechanicId: string, bookingId: string): void;
-    sendBookingCompleted(userId: string, bookingId: string): void;
-    emitBookingCompleted(userId: string, bookingId: string): void;
+    emitToAdmin(event: string, payload: any): void;
+    emitBookingCompleted(userId: string, bookingId: string): Promise<void>;
+    emitBookingCancelled(userId: string, bookingId: string): Promise<void>;
+    emitDisputeOpened(customerId: string, mechanicId: string, bookingId: string): Promise<void>;
 }

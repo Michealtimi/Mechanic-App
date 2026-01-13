@@ -12,7 +12,7 @@ const booking_controller_1 = require("./booking.controller");
 const booking_service_1 = require("./booking.service");
 const prisma_module_1 = require("../../prisma/prisma.module");
 const wallet_module_1 = require("../wallet/wallet.module");
-const payment_module_1 = require("../paymnet/payment.module");
+const payments_module_1 = require("../paymnet/payments.module");
 const audit_module_1 = require("../audit/audit.module");
 const notification_module_1 = require("../notification/notification.module");
 let BookingModule = class BookingModule {
@@ -24,7 +24,7 @@ exports.BookingModule = BookingModule = __decorate([
         providers: [booking_service_1.BookingService],
         imports: [
             prisma_module_1.PrismaModule,
-            payment_module_1.PaymentModule,
+            payments_module_1.PaymentModule,
             wallet_module_1.WalletModule,
             audit_module_1.AuditModule,
             notification_module_1.NotificationModule,

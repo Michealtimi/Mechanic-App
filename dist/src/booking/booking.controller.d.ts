@@ -1,21 +1,19 @@
 import { BookingService } from './booking.service';
-import { UpdateBookingStatusDto } from './dto/update-booking-status.dto';
-import { CreateBookingDto } from './dto/creating-booking.dto';
-import { BookingFilterDto } from './dto/booking-filter.dto';
+import { CreateBookingDto, UpdateBookingStatusDto, BookingFilterDto, BookingResponseDto } from './dto/booking.dto';
 export declare class BookingController {
     private readonly bookingService;
     constructor(bookingService: BookingService);
-    createBooking(req: any, dto: CreateBookingDto): Promise<any>;
-    getBookings(req: any, filter: BookingFilterDto): Promise<{
-        data: any;
+    createBooking(createBookingDto: CreateBookingDto, req: any): Promise<BookingResponseDto>;
+    getAllBookings(req: any, filterDto: BookingFilterDto): Promise<{
+        data: BookingResponseDto[];
         meta: {
-            total: any;
+            total: number;
             skip: number;
             take: number;
             hasMore: boolean;
         };
     }>;
-    getBookingById(id: string, req: any): Promise<any>;
-    updateStatus(id: string, dto: UpdateBookingStatusDto, req: any): Promise<any>;
-    cancelBooking(id: string, req: any): Promise<any>;
+    getBookingById(id: string, req: any): Promise<BookingResponseDto>;
+    updateBookingStatus(id: string, updateBookingStatusDto: UpdateBookingStatusDto, req: any): Promise<BookingResponseDto>;
+    cancelBooking(id: string, req: any): Promise<BookingResponseDto>;
 }

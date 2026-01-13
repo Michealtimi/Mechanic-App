@@ -21,7 +21,7 @@ import { UpdateServiceDto } from './dto/update-service.dto';
 import { UpdateMechanicDto } from './dto/update.mechanic.dto';
 import { GetUser } from 'src/utils/get-user.decorator';
 import { Role } from '@prisma/client';
-import { JwtAuthGuard } from 'src/auth/jwt.guard';
+import { JwtAuthGuard } from 'src/auth/guard/jwt.guard';
 
 import { RolesGuard } from 'src/common/guard/roles.guards';
 

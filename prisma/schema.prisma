@@ -1,3 +1,8 @@
+// This is your complete, updated Prisma schema.
+// It incorporates features like real-time mechanic location,
+// EV specialization, granular availability, ratings, reviews,
+// and robust chat relations.
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,44 +12,159 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// NEW: Enum for more precise mechanic online/availability status
+enum MechanicOnlineStatus {
+  ONLINE // Actively online and looking for jobs
+  OFFLINE // Not online or not taking jobs
+  ON_JOB // Currently on a job, not available for new ones
+  BUSY // Temporarily unavailable for other reasons
+  BREAK // On a break
+}
+
+enum BookingStatus {
+  PENDING //
+  CONFIRMED // B
+  SCHEDULED // Booking is officially on the calendar
+  IN_PROGRESS // Mechanic is actively working on the service
+  COMPLETED // Service has been rendered
+  CANCELLED // Booking cancelled by customer or mechanic
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  CANCELLED
+  AUTHORIZED
+  CAPTURED
+  REFUNDED
+  PARTIALLY_REFUNDED
+  CHARGEBACK
+  EXPIRED
+}
+
+enum PaymentEventType {
+  INITIATED
+  VERIFIED
+  WEBHOOK
+  CAPTURED
+  REFUND
+  CHARGEBACK
+}
+
+model PaymentEvent {
+  id            String           @id @default(uuid())
+  paymentId     String           
+  gateway       String           // e.g., "STRIPE", "PAYSTACK"
+  gatewayEvent  String           // The ID from the provider (e.g., "evt_123")
+  type          PaymentEventType // Now type-safe!
+  rawPayload    Json
+  createdAt     DateTime         @default(now())
+
+  
+  @@index([paymentId])
+
+
+  @@unique([gateway, gatewayEvent])
+}
+
+enum DisputeStatus {
+  PENDING
+  RESOLVED
+  REJECTED
+}
+
+enum Role {
+  SUPERADMIN
+  ADMIN
+  MECHANIC
+  CUSTOMER
+}
+
+enum Status {
+  PENDING // For accounts awaiting approval/verification (e.g., mechanic onboarding)
+  ACTIVE // Account is active and can operate normally
+  APPROVED // Explicitly approved (e.g., after a mechanic verification process)
+  REJECTED // Account was rejected
+}
+
+// =========================================================================
+// Core Models
+// =========================================================================
+
 model Skill {
   id    String @id @default(uuid())
   name  String @unique // The name of the skill (e.g., 'Brake Repair')
   users User[] // This creates the relationship back to the User model
 }
 
+
 model User {
-  id                String            @id @default(uuid())
-  email             String            @unique
-  password          String
-  firstName         String?
-  lastName          String?
-  role              Role              @default(CUSTOMER)
-  status            Status            @default(PENDING) // now an enum
-  shopName          String?
-  location          String?
-  skills            Skill[] // array of strings
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  id          String    @id @default(uuid())
+  email       String    @unique
+  password    String
+  firstName   String?
+  lastName    String?
+  phoneNumber String?
+  pushToken   String?
+  role        Role      @default(CUSTOMER)
+  status      Status    @default(PENDING) // Account approval/verification status
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  lastLogin   DateTime? // (Existing) updated on login
+
+  // -----------------------------------------------------------------------
+  // CHANGED/ADDED: Mechanic Specific Fields (when role is MECHANIC)
+  // These fields replace the vague 'location' and add crucial features.
+  // -----------------------------------------------------------------------
+  shopName             String?
+  // REMOVED: `location: String?` (from your previous schema, replaced by lat/lng)
+  currentLat           Float? // ADDED: Mechanic's current/last known latitude for geo-search
+  currentLng           Float?
+  payouts              Payout[]             @relation("MechanicPayouts") // A mechanic (user) can have many payouts                            // ADDED: Mechanic's current/last known longitude for geo-search
+  isAvailableForJobs   Boolean              @default(false) // ADDED: Simple toggle for a mechanic's immediate readiness for work
+  mechanicOnlineStatus MechanicOnlineStatus @default(OFFLINE) // ADDED: Granular online/availability status (uses NEW Enum)
+  isEvSpecialist       Boolean              @default(false) // ADDED: CRITICAL: Flag for EV specific matching
+  serviceRadiusKm      Int                  @default(20) // ADDED: Max distance (in km) mechanic is willing to travel for a job
+
+  skills            Skill[] // (Existing) array of skills (many-to-many with Skill model)
   experienceYears   Int?
   profilePictureUrl String?
-  bio               String?
-  certificationUrls String[]
-  CustomerBookings  Booking[]         @relation("CustomerBookings")
-  MechanicBookings  Booking[]         @relation("MechanicBookings")
-  mechanicServices  MechanicService[]
-  deletedAt         DateTime?
-  lastLogin         DateTime? // added — updated on login
-  refreshTokens     RefreshToken[] // relation to stored refresh tokens
-  auditLogs         Audit[]           @relation("UserAuditLogs")
+  bio               String?  @db.Text // (Existing) Use @db.Text for potentially long text
+  certificationUrls String[] // (Existing) Array of URLs to certifications
 
-  Subaccount Subaccount[]
+  averageRating      Float @default(0.0) // ADDED: Current average rating (e.g., 4.7)
+  totalReviews       Int   @default(0) // ADDED: Total number of reviews received
+  totalJobsCompleted Int   @default(0) // ADDED: Total number of completed jobs metric
 
-  Dispute Dispute[]
+  // -----------------------------------------------------------------------
+  // Relations
+  // -----------------------------------------------------------------------
+  CustomerBookings Booking[]         @relation("CustomerBookings") // (Existing) Bookings as a customer
+  writtenReviews   Review[]          @relation("CustomerReviews")
+  MechanicBookings Booking[]         @relation("MechanicBookings") // (Existing) Bookings as a mechanic
+  mechanicServices MechanicService[] // (Existing) Services offered by this mechanic
+  refreshTokens    RefreshToken[] // (Existing) Relation to stored refresh tokens
+  dispatches       Dispatch[]        @relation("MechanicDispatches")
+  auditLogs        AuditLog[]        @relation("UserAuditLogs") // (Existing) Relation to audit logs
+  subaccounts      Subaccount[] // (Existing) Payment subaccounts
+  disputes         Dispute[] // (Existing) Disputes involving this user
+  wallets          Wallet[] // (Existing) Wallets
+  payments         Payment[] // (Existing) Payments made by this user
 
-  Wallet Wallet[]
+  reviews             Review[]      @relation("MechanicReviews") // ADDED: Reviews received by this mechanic (if role is MECHANIC)
+  // CHANGED: Explicitly named relations for ChatRoom (crucial for clarity and correctness)
+  chatRoomsAsCustomer ChatRoom[]    @relation("CustomerChatRooms") // ADDED: Chat rooms where this user is the customer
+  chatRoomsAsMechanic ChatRoom[]    @relation("MechanicChatRooms") // ADDED: Chat rooms where this user is the mechanic
+  sentMessages        ChatMessage[] @relation("Sender")
 
-  Payment Payment[]
+  // -----------------------------------------------------------------------
+  // Indices (Added for performance on mechanic-related queries)
+  // -----------------------------------------------------------------------
+  @@index([currentLat, currentLng]) // ADDED: For efficient geographical queries
+  @@index([isAvailableForJobs]) // ADDED: For quickly finding available mechanics
+  @@index([averageRating]) // ADDED: For sorting mechanics by quality
 }
 
 model MechanicService {
@@ -53,7 +173,7 @@ model MechanicService {
   description   String?
   price         Float
   estimatedTime String?
-  availability  String?
+  availability  String? // Consider making this a more structured type (e.g., JSON or separate Availability model)
   mechanicId    String
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -61,48 +181,104 @@ model MechanicService {
   mechanic      User      @relation(fields: [mechanicId], references: [id])
 }
 
+// --------------------------------------------------------------------------------
+// Booking Model
+// --------------------------------------------------------------------------------
 model Booking {
-  id            String          @id @default(uuid())
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  customerId    String
-  mechanicId    String
-  serviceId     String
-  status        BookingStatus   @default(PENDING)
-  scheduledAt   DateTime
-  customer      User            @relation("CustomerBookings", fields: [customerId], references: [id])
-  mechanic      User            @relation("MechanicBookings", fields: [mechanicId], references: [id])
-  service       MechanicService @relation(fields: [serviceId], references: [id])
-  payment       Payment?        @relation(fields: [paymentId], references: [id])
-  price         Float
-  paymentId     String?         @unique // Paystack/Stripe reference
-  paymentStatus String          @default("PENDING")
+  id                    String        @id @default(uuid())
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  customerId            String
+  mechanicId            String?       // Make optional if mechanic is assigned AFTER booking created
+  serviceId             String
+  status                BookingStatus @default(PENDING) // (Existing) Overall booking lifecycle status
+  scheduledAt           DateTime
+  price                 Decimal       @db.Decimal(10, 2) // (Existing) CRITICAL: Use Decimal for monetary values (e.g., 99999999.99)
 
-  disputes Dispute[]
+  // --- NEW FIELDS FOR PICKUP LOCATION ---
+  pickupLatitude        Decimal       @db.Decimal(10, 8) // Latitude, e.g., 90.00000000
+  pickupLongitude       Decimal       @db.Decimal(11, 8) // Longitude, e.g., 180.00000000
+  pickupAddress         String                            // The human-readable address
+  pickupLocationNotes   String?  
+                           // Optional notes from customer (e.g., "blue gate")
+  // --- END NEW FIELDS ---
+
+  // Relations
+  customer              User          @relation("CustomerBookings", fields: [customerId], references: [id])
+  mechanic              User?         @relation("MechanicBookings", fields: [mechanicId], references: [id]) // Make optional for mechanic
+  service               MechanicService @relation(fields: [serviceId], references: [id])
+
+  chatRoom              ChatRoom?
+  payment               Payment?
+
+  disputes              Dispute[] // (Existing) A booking can have multiple disputes
+  reviews               Review[]
+  dispatch              Dispatch? // NEW: A booking can have one related dispatch record
+  slaRecord             SlaRecord? // NEW: A booking can have one related SLA record
 }
 
+// --------------------------------------------------------------------------------
+// Chat Models
+// --------------------------------------------------------------------------------
+model ChatRoom {
+  id         String  @id @default(cuid()) // Unique identifier for the chat room
+  customerId String // ID of the customer participating in this chat
+  mechanicId String // ID of the mechanic participating in this chat
+  bookingId  String? @unique // (Existing) Optional ID of a Booking (unique for one-to-one booking-chat relation)
+
+  createdAt DateTime @default(now()) // Timestamp when the chat room was created
+  updatedAt DateTime @updatedAt // Timestamp of the last update to the chat room
+
+  messages ChatMessage[] // (Existing) Relation: A chat room can have many messages
+
+  // CHANGED: Explicitly named relations to User model from ChatRoom side
+  customer User     @relation("CustomerChatRooms", fields: [customerId], references: [id])
+  mechanic User     @relation("MechanicChatRooms", fields: [mechanicId], references: [id])
+  booking  Booking? @relation(fields: [bookingId], references: [id])
+
+  @@unique([customerId, mechanicId]) // (Existing) Ensures only one chat room per customer-mechanic pair
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid()) // Unique identifier for the message
+  roomId    String // ID of the ChatRoom this message belongs to
+  senderId  String // ID of the User (customer or mechanic) who sent this message
+  message   String // The actual content of the message
+  createdAt DateTime @default(now()) // Timestamp when the message was sent
+
+  room   ChatRoom @relation(fields: [roomId], references: [id]) // (Existing) Relation: Links message to its ChatRoom
+  sender User     @relation("Sender", fields: [senderId], references: [id]) // ADDED: Relation to the User model as sender
+}
+
+// --------------------------------------------------------------------------------
+// Payment & Wallet Models 
+// --------------------------------------------------------------------------------
 model Payment {
-  id         String    @id @default(cuid())
-  reference  String    @unique
-  userId     String
-  bookingId  String?   @unique
-  gateway    String // "PAYSTACK", "FLUTTERWAVE", "SANDBOX" 
-  amount     Int // in kobo/cents
-  status     String // "PENDING" | "SUCCESS" | "FAILED"
-  metadata   Json?
-  createdAt  DateTime  @default(now())
-  verifiedAt DateTime?
-  updatedAt  DateTime  @updatedAt
+  id                 String        @id @default(cuid())
+  reference          String        @unique
+  userId             String
+  bookingId          String?       @unique // (Existing) One-to-one relation to Booking
+  gateway            String
+  amount             Decimal
+  refundedAmount     Decimal       @default(0)
+  status             PaymentStatus @default(PENDING)
+  metadata           Json?
+  rawGatewayResponse Json?
+  createdAt          DateTime      @default(now())
+  verifiedAt         DateTime? // (Existing) Timestamp when the payment was successfully verified
+  updatedAt          DateTime      @updatedAt
 
-  user User @relation(fields: [userId], references: [id])
-
-  Booking Booking[]
+  // Relations
+  user    User     @relation(fields: [userId], references: [id]) // (Existing) The customer who paid
+  booking Booking? @relation(fields: [bookingId], references: [id])
 }
+
+
 
 model Wallet {
   id        String   @id @default(cuid())
   userId    String   @unique
-  balance   Decimal  @default(0) // in kobo
+  balance   Decimal  @default(0) // (Existing) in kobo or smallest currency unit
   pending   Decimal  @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -114,14 +290,38 @@ model Wallet {
 model WalletTransaction {
   id           String   @id @default(cuid())
   walletId     String
-  bookingId    String?
-  type         String // "CREDIT" | "DEBIT" | "PENDING"
+  bookingId    String? // (Existing) Link to a specific booking that triggered this transaction
+  type         String // (Existing) "CREDIT" | "DEBIT" | "PENDING"
   amount       Decimal
   balanceAfter Decimal
   metadata     Json?
   createdAt    DateTime @default(now())
 
   wallet Wallet @relation(fields: [walletId], references: [id])
+}
+
+enum PayoutStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED // Added a 'CANCELLED' status for more robust workflow management
+}
+
+model Payout {
+  id         String @id @default(cuid())
+  mechanicId String
+  mechanic   User   @relation("MechanicPayouts", fields: [mechanicId], references: [id]) // Establish relationship to User (as Mechanic)
+
+  amount Decimal      @db.Decimal(10, 2) // Changed from Int to Decimal for monetary accuracy
+  status PayoutStatus @default(PENDING) // Changed from String to PayoutStatus enum
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Optional: Add a transactionId from a payment gateway if applicable
+  transactionId String?
+  // Optional: Add a reason for failed/cancelled payouts
+  failureReason String? @db.VarChar(255)
 }
 
 model Subaccount {
@@ -132,7 +332,7 @@ model Subaccount {
   bankCode         String
   accountNumber    String
   provider         String // 'paystack' | 'flutterwave'
-  subaccountId     String
+  subaccountId     String // The ID assigned by the payment gateway
   percentageCharge Float // platform commission (e.g. 10 = 10%)
   status           String   @default("pending") // pending|active|rejected
   businessName     String
@@ -143,29 +343,28 @@ model Subaccount {
   mechanic User @relation(fields: [mechanicId], references: [id])
 }
 
+// --------------------------------------------------------------------------------
+// Dispute, RefreshToken, AuditLog Models
+// --------------------------------------------------------------------------------
 model Dispute {
-  id             String    @id @default(cuid())
+  id             String        @id @default(cuid())
   bookingId      String
-  userId         String
-  reason         String
-  status         String    @default("open")
-  resolution     String?
-  resolvedAmount Float?
+  userId         String // (Existing) User who initiated the dispute (customer or mechanic)
+  reason         String        @db.Text // (Existing) Use @db.Text for potentially long text
+  status         DisputeStatus @default(PENDING) // CHANGED: Using new DisputeStatus enum
+  resolution     String?       @db.Text
+  resolvedAmount Decimal? // CHANGED: Use Decimal for monetary value for accuracy
   resolvedAt     DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   booking Booking @relation(fields: [bookingId], references: [id])
   user    User    @relation(fields: [userId], references: [id])
 }
 
-/**
- * Stored refresh tokens so you can revoke / validate refresh tokens server-side.
- * Note: your code hashed the refresh token before storing; Prisma stores the hashed string.
- */
 model RefreshToken {
-  id        String   @id @default(uuid()) // jti
-  token     String // hashed refresh token
+  id        String   @id @default(uuid()) // (Existing) jti (JWT ID)
+  token     String // (Existing) hashed refresh token
   userId    String
   user      User     @relation(fields: [userId], references: [id])
   revoked   Boolean  @default(false)
@@ -173,39 +372,90 @@ model RefreshToken {
   createdAt DateTime @default(now())
 }
 
-model Audit {
+model AuditLog {
+  id        String   @id @default(cuid())
+  timestamp DateTime @default(now())
+
+  actor     String // (Existing) ID of the user who performed the action
+  entity    String // (Existing) Name of the entity being acted upon (e.g., 'Booking', 'User')
+  entityId  String // (Existing) ID of the entity instance
+  action    String // Type of action (e.g., 'CREATE', 'UPDATE', 'DELETE', 'LOGIN')
+  before    Json? // State of the entity before the action
+  after     Json? // State of the entity after the action
+  ip        String?
+  userAgent String?
+  metadata  Json? // Additional relevant data
+  user      User    @relation("UserAuditLogs", fields: [actor], references: [id])
+}
+
+// =========================================================================
+// NEW: Review Model (Crucial for platform trust and mechanic reputation)
+// =========================================================================
+
+// ADDED: Model for customer reviews of mechanics
+model Review {
   id         String   @id @default(uuid())
-  userId     String?
-  action     String
-  resource   String
-  resourceId String?
-  changes    Json?
+  rating     Int // Rating from 1 to 5 stars
+  comment    String?  @db.Text
+  customerId String // User who wrote the review
+  mechanicId String // Mechanic being reviewed
+  bookingId  String?  @unique // Optional: Link review to a specific booking (made unique for one review per booking)
   createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  user User? @relation("UserAuditLogs", fields: [userId], references: [id])
+  customer User     @relation("CustomerReviews", fields: [customerId], references: [id]) // Customer who wrote the review
+  mechanic User     @relation("MechanicReviews", fields: [mechanicId], references: [id]) // Mechanic being reviewed
+  booking  Booking? @relation(fields: [bookingId], references: [id])
+
+  @@unique([customerId, mechanicId, bookingId]) // Ensures a customer reviews a mechanic for a SPECIFIC booking only once
+  @@index([mechanicId]) // For querying all reviews for a specific mechanic
 }
 
-enum Role {
-  SUPERADMIN // newly added so you can seed a super admin
-  ADMIN
-  MECHANIC
-  CUSTOMER
-}
+// =========================================================================
+// NEW: Dispatch & SLA Models
+// =========================================================================
 
-/**
- * Status enum: includes ACTIVE so it matches usage in your signup/signin flows.
- * I kept PENDING (default), plus ACTIVE, APPROVED, REJECTED — feel free to prune later.
- */
-enum Status {
-  PENDING
-  ACTIVE
-  APPROVED
+enum DispatchStatus {
+  SEARCHING
+  OFFERED
+  ACCEPTED
   REJECTED
+  CANCELLED
+  TIMEOUT
 }
 
-enum BookingStatus {
+model Dispatch {
+  id          String         @id @default(uuid())
+  bookingId   String         @unique
+  mechanicId  String?
+  status      DispatchStatus @default(SEARCHING)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  booking     Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  mechanic    User?          @relation("MechanicDispatches", fields: [mechanicId], references: [id])
+
+  @@index([mechanicId])
+  @@index([status])
+}
+
+enum SlaStatus {
   PENDING
-  CONFIRMED
-  COMPLETED
-  CANCELLED
+  MET
+  BREACHED
+}
+
+model SlaRecord {
+  id           String    @id @default(uuid())
+  bookingId    String    @unique
+  status       SlaStatus @default(PENDING)
+  breachReason String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  booking      Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  // Optional for Google Maps SLA tracking
+  expectedArrivalMs   Int?    // milliseconds from assignment to expected arrival
+  distanceMeters      Int?    // travel distance in meters
 }

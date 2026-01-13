@@ -11,21 +11,37 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var FlutterwaveWebhookController_1;
+var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FlutterwaveWebhookController = void 0;
 const common_1 = require("@nestjs/common");
-const payment_services_1 = require("./payment.services");
-let FlutterwaveWebhookController = class FlutterwaveWebhookController {
-    paymentService;
-    constructor(paymentService) {
-        this.paymentService = paymentService;
+const payments_service_1 = require("./payments.service");
+let FlutterwaveWebhookController = FlutterwaveWebhookController_1 = class FlutterwaveWebhookController {
+    paymentsService;
+    logger = new common_1.Logger(FlutterwaveWebhookController_1.name);
+    constructor(paymentsService) {
+        this.paymentsService = paymentsService;
     }
-    async handlePaystackWebhook(signature, req) {
+    async handleFlutterwaveWebhook(signature, req) {
+        this.logger.log('Received Flutterwave webhook.');
         if (!signature) {
+            this.logger.warn('Flutterwave webhook received without verif-hash signature.');
             throw new common_1.ForbiddenException('Flutterwave signature missing.');
         }
-        await this.paymentService.handleWebhook(signature, req.rawBody);
-        return { received: true };
+        if (!req.rawBody) {
+            this.logger.error('Raw body not available for Flutterwave webhook. Check NestJS config.');
+            throw new common_1.ForbiddenException('Raw body not available for signature verification.');
+        }
+        try {
+            await this.paymentsService.handleFlutterwaveWebhook(signature, req.rawBody);
+            this.logger.log('Flutterwave webhook processed successfully.');
+            return { received: true, message: 'Webhook processed successfully' };
+        }
+        catch (error) {
+            this.logger.error(`Error processing Flutterwave webhook: ${error.message}`, error.stack);
+            throw error;
+        }
     }
 };
 exports.FlutterwaveWebhookController = FlutterwaveWebhookController;
@@ -37,9 +53,9 @@ __decorate([
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
-], FlutterwaveWebhookController.prototype, "handlePaystackWebhook", null);
-exports.FlutterwaveWebhookController = FlutterwaveWebhookController = __decorate([
+], FlutterwaveWebhookController.prototype, "handleFlutterwaveWebhook", null);
+exports.FlutterwaveWebhookController = FlutterwaveWebhookController = FlutterwaveWebhookController_1 = __decorate([
     (0, common_1.Controller)('webhooks/flutterwave'),
-    __metadata("design:paramtypes", [payment_services_1.PaymentService])
+    __metadata("design:paramtypes", [typeof (_a = typeof payments_service_1.PaymentsService !== "undefined" && payments_service_1.PaymentsService) === "function" ? _a : Object])
 ], FlutterwaveWebhookController);
 //# sourceMappingURL=flutterwave-webhook.controller.js.map

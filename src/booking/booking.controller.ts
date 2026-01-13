@@ -1,77 +1,86 @@
-/* eslint-disable prettier/prettier */
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
- 
+// src/booking/booking.controller.ts
 import {
   Controller,
-  Post,
   Get,
-  Patch,
+  Post,
+  Put,
   Delete,
-  Param,
   Body,
-  Request,
+  Param,
+  Query,
   UseGuards,
+  Req,
   HttpCode,
   HttpStatus,
-  Query,
+  UseInterceptors,
+  ClassSerializerInterceptor,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { BookingService } from './booking.service';
+import {
+  CreateBookingDto,
+  UpdateBookingStatusDto,
+  BookingFilterDto,
+  BookingResponseDto, // Import the new consolidated response DTO
+} from './dto/booking.dto'; // Import from the new consolidated DTO file
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { Role } from '@prisma/client';
+import { plainToInstance } from 'class-transformer'; // Needed for manual transformation if not using ClassSerializerInterceptor globally
 
-import { UpdateBookingStatusDto } from './dto/update-booking-status.dto';
-
-import { JwtAuthGuard } from 'src/auth/jwt.guard';
-import { RolesGuard } from 'src/common/guard/roles.guards';
-import { CreateBookingDto } from './dto/creating-booking.dto';
-import { BookingFilterDto } from './dto/booking-filter.dto';
-import { BookingResponseDto } from './dto/bookingresponse.dto';
-import { Roles } from 'src/common/decorators/roles.decorators';
-
-@ApiTags('Bookings')
-@ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Controller('booking')
+@UseGuards(JwtAuthGuard, RolesGuard) // Apply guards at controller level
+@UseInterceptors(ClassSerializerInterceptor) // Apply serializer globally to this controller
+@Controller('bookings')
 export class BookingController {
   constructor(private readonly bookingService: BookingService) {}
 
-  @Post('create')
-  @Roles('CUSTOMER')
-  @ApiOperation({ summary: 'Create a booking' })
-  @ApiResponse({ status: 201, type: BookingResponseDto })
-  async createBooking(@Request() req, @Body() dto: CreateBookingDto) {
-    return this.bookingService.createBooking(dto, req.user.id);
+  @Post()
+  @Roles(Role.CUSTOMER) // Only customers can create bookings
+  @HttpCode(HttpStatus.CREATED)
+  async createBooking(@Body() createBookingDto: CreateBookingDto, @Req() req) {
+    const customerId = req.user.id;
+    const { booking, payment } = await this.bookingService.createBooking(createBookingDto, customerId);
+    // The service returns { booking, payment }, we want to serialize the booking part
+    // The `ClassSerializerInterceptor` will automatically call `plainToInstance` for `booking`
+    // but you might need to structure your return to specifically return the serialized booking.
+    // Let's return the booking part, and if needed, the payment as a nested object
+    return plainToInstance(BookingResponseDto, booking, { excludeExtraneousValues: true });
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all bookings for logged-in user' })
-  async getBookings(@Request() req, @Query() filter: BookingFilterDto) {
-    return this.bookingService.getAllBookings(req.user.id, filter);
+  async getAllBookings(@Req() req, @Query() filterDto: BookingFilterDto) {
+    const userId = req.user.id;
+    const { data, meta } = await this.bookingService.getAllBookings(userId, filterDto);
+    // `ClassSerializerInterceptor` will handle the transformation of `data` if `data` is an array of plain objects
+    return {
+      data: plainToInstance(BookingResponseDto, data, { excludeExtraneousValues: true }),
+      meta,
+    };
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get booking by ID' })
-  @ApiParam({ name: 'id', example: 'uuid-booking' })
-  async getBookingById(@Param('id') id: string, @Request() req) {
-    return this.bookingService.getBookingById(id, req.user.id);
+  async getBookingById(@Param('id') id: string, @Req() req) {
+    const userId = req.user.id;
+    const booking = await this.bookingService.getBookingById(id, userId);
+    // `ClassSerializerInterceptor` will handle the transformation
+    return plainToInstance(BookingResponseDto, booking, { excludeExtraneousValues: true });
   }
 
-  @Patch(':id/status')
-  @Roles('MECHANIC')
-  @ApiOperation({ summary: 'Update booking status (mechanic only)' })
-  async updateStatus(
-    @Param('id') id: string,
-    @Body() dto: UpdateBookingStatusDto,
-    @Request() req,
-  ) {
-    return this.bookingService.updateBookingStatus(id, dto, req.user.id);
+  @Put(':id/status')
+  @Roles(Role.MECHANIC) // Only mechanics can update booking status
+  async updateBookingStatus(@Param('id') id: string, @Body() updateBookingStatusDto: UpdateBookingStatusDto, @Req() req) {
+    const mechanicId = req.user.id;
+    const updatedBooking = await this.bookingService.updateBookingStatus(id, updateBookingStatusDto, mechanicId);
+    // `ClassSerializerInterceptor` will handle the transformation
+    return plainToInstance(BookingResponseDto, updatedBooking, { excludeExtraneousValues: true });
   }
 
-  @Delete(':id')
-  @Roles('CUSTOMER')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Cancel booking (customer only)' })
-  async cancelBooking(@Param('id') id: string, @Request() req) {
-    return this.bookingService.cancelBooking(id, req.user.id);
+  @Put(':id/cancel') // Using PUT for cancellation as it's an update
+  @Roles(Role.CUSTOMER) // Only customer can cancel their own booking (or admin)
+  async cancelBooking(@Param('id') id: string, @Req() req) {
+    const customerId = req.user.id;
+    const cancelledBooking = await this.bookingService.cancelBooking(id, customerId);
+    // `ClassSerializerInterceptor` will handle the transformation
+    return plainToInstance(BookingResponseDto, cancelledBooking, { excludeExtraneousValues: true });
   }
 }

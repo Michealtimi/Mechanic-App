@@ -14,13 +14,9 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthController = void 0;
 const common_1 = require("@nestjs/common");
-const swagger_1 = require("@nestjs/swagger");
 const auth_service_1 = require("./auth.service");
 const auth_dto_1 = require("./dto/auth.dto");
-const jwt_guard_1 = require("./jwt.guard");
-const roles_guards_1 = require("../common/guard/roles.guards");
-const roles_decorators_1 = require("../common/decorators/roles.decorators");
-const client_1 = require("@prisma/client");
+const swagger_1 = require("@nestjs/swagger");
 let AuthController = class AuthController {
     authService;
     constructor(authService) {
@@ -32,11 +28,11 @@ let AuthController = class AuthController {
     async login(dto) {
         return this.authService.login(dto);
     }
-    async logout(dto) {
-        return this.authService.logout(dto.refreshToken);
+    async logout(refreshToken) {
+        return this.authService.logout(refreshToken);
     }
-    async refresh(dto) {
-        return this.authService.refreshToken(dto.refreshToken);
+    async refresh(refreshToken) {
+        return this.authService.refreshToken(refreshToken);
     }
     async forgotPassword(dto) {
         return this.authService.forgotPassword(dto);
@@ -48,13 +44,12 @@ let AuthController = class AuthController {
 exports.AuthController = AuthController;
 __decorate([
     (0, common_1.Post)('register'),
-    (0, common_1.UseGuards)(jwt_guard_1.JwtAuthGuard, roles_guards_1.RolesGuard),
-    (0, roles_decorators_1.Roles)(client_1.Role.SUPERADMIN),
-    (0, swagger_1.ApiBearerAuth)(),
-    (0, swagger_1.ApiOperation)({ summary: 'Register a new user (SUPER_ADMIN only)' }),
-    (0, swagger_1.ApiBody)({ type: auth_dto_1.RegisterUserDto }),
-    (0, swagger_1.ApiResponse)({ status: 201, description: 'User registered successfully' }),
-    (0, swagger_1.ApiResponse)({ status: 403, description: 'Forbidden: not SUPER_ADMIN' }),
+    (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
+    (0, swagger_1.ApiOperation)({ summary: 'Register a new user' }),
+    (0, swagger_1.ApiBody)({ type: auth_dto_1.RegisterUserDto, description: 'User registration data, including optional mechanic-specific fields if role is MECHANIC' }),
+    (0, swagger_1.ApiResponse)({ status: 201, description: 'User successfully registered' }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'Bad Request (e.g., email already in use, validation errors)' }),
+    (0, swagger_1.ApiResponse)({ status: 500, description: 'Internal Server Error' }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [auth_dto_1.RegisterUserDto]),
@@ -63,10 +58,11 @@ __decorate([
 __decorate([
     (0, common_1.Post)('login'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
-    (0, swagger_1.ApiOperation)({ summary: 'Login with email and password' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Login user and get JWT tokens' }),
     (0, swagger_1.ApiBody)({ type: auth_dto_1.LoginDto }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Login successful' }),
-    (0, swagger_1.ApiResponse)({ status: 401, description: 'Invalid credentials' }),
+    (0, swagger_1.ApiResponse)({ status: 401, description: 'Unauthorized (Invalid credentials)' }),
+    (0, swagger_1.ApiResponse)({ status: 500, description: 'Internal Server Error' }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [auth_dto_1.LoginDto]),
@@ -75,33 +71,36 @@ __decorate([
 __decorate([
     (0, common_1.Post)('logout'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
-    (0, swagger_1.ApiOperation)({ summary: 'Logout user by invalidating refresh token' }),
-    (0, swagger_1.ApiBody)({ type: auth_dto_1.RefreshTokenDto }),
+    (0, swagger_1.ApiOperation)({ summary: 'Invalidate refresh token and log out user' }),
+    (0, swagger_1.ApiBody)({ description: 'Refresh token to revoke', schema: { type: 'object', properties: { refreshToken: { type: 'string' } } } }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Logged out successfully' }),
-    __param(0, (0, common_1.Body)()),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'Bad Request (e.g., refresh token not found)' }),
+    (0, swagger_1.ApiResponse)({ status: 403, description: 'Forbidden (e.g., invalid/expired refresh token)' }),
+    __param(0, (0, common_1.Body)('refreshToken')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [auth_dto_1.RefreshTokenDto]),
+    __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "logout", null);
 __decorate([
     (0, common_1.Post)('refresh'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
-    (0, swagger_1.ApiOperation)({ summary: 'Get a new access token using refresh token' }),
-    (0, swagger_1.ApiBody)({ type: auth_dto_1.RefreshTokenDto }),
+    (0, swagger_1.ApiOperation)({ summary: 'Refresh access token using refresh token' }),
+    (0, swagger_1.ApiBody)({ description: 'Refresh token to get new access token', schema: { type: 'object', properties: { refreshToken: { type: 'string' } } } }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'New access token issued' }),
-    __param(0, (0, common_1.Body)()),
+    (0, swagger_1.ApiResponse)({ status: 403, description: 'Forbidden (e.g., invalid/expired/revoked refresh token)' }),
+    (0, swagger_1.ApiResponse)({ status: 500, description: 'Internal Server Error' }),
+    __param(0, (0, common_1.Body)('refreshToken')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [auth_dto_1.RefreshTokenDto]),
+    __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "refresh", null);
 __decorate([
     (0, common_1.Post)('forgot-password'),
-    (0, swagger_1.ApiOperation)({ summary: 'Request password reset link' }),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({ summary: 'Request a password reset link' }),
     (0, swagger_1.ApiBody)({ type: auth_dto_1.ForgotPasswordDto }),
-    (0, swagger_1.ApiResponse)({
-        status: 200,
-        description: 'Reset link sent (if account exists)',
-    }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'If an account exists, a reset link was sent.' }),
+    (0, swagger_1.ApiResponse)({ status: 500, description: 'Internal Server Error' }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [auth_dto_1.ForgotPasswordDto]),
@@ -109,9 +108,13 @@ __decorate([
 ], AuthController.prototype, "forgotPassword", null);
 __decorate([
     (0, common_1.Post)('reset-password'),
-    (0, swagger_1.ApiOperation)({ summary: 'Reset password using token' }),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({ summary: 'Reset user password using a valid token' }),
     (0, swagger_1.ApiBody)({ type: auth_dto_1.ResetPasswordDto }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Password reset successful' }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'Bad Request (e.g., user not found)' }),
+    (0, swagger_1.ApiResponse)({ status: 403, description: 'Forbidden (e.g., invalid or expired reset token)' }),
+    (0, swagger_1.ApiResponse)({ status: 500, description: 'Internal Server Error' }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [auth_dto_1.ResetPasswordDto]),

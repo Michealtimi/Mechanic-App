@@ -3,7 +3,7 @@ import { BookingController } from './booking.controller';
 import { BookingService } from './booking.service';
 import { PrismaModule } from 'prisma/prisma.module';
 import { WalletModule } from 'src/wallet/wallet.module';
-import { PaymentModule } from 'src/paymnet/payment.module';
+import { PaymentModule } from 'src/paymnet/payments.module';
 import { AuditModule } from 'src/audit/audit.module';
 import { NotificationModule } from 'src/notification/notification.module';
 // Assuming NotificationGateway is provided in a NotificationModule

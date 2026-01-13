@@ -11,7 +11,7 @@ const common_1 = require("@nestjs/common");
 const dispute_service_1 = require("./dispute.service");
 const prisma_module_1 = require("../../prisma/prisma.module");
 const wallet_module_1 = require("../wallet/wallet.module");
-const payment_module_1 = require("../paymnet/payment.module");
+const payments_module_1 = require("../paymnet/payments.module");
 const dispute_controller_1 = require("./dispute.controller");
 const audit_module_1 = require("../audit/audit.module");
 let DisputeModule = class DisputeModule {
@@ -22,7 +22,7 @@ exports.DisputeModule = DisputeModule = __decorate([
         imports: [
             prisma_module_1.PrismaModule,
             wallet_module_1.WalletModule,
-            payment_module_1.PaymentModule,
+            payments_module_1.PaymentModule,
             audit_module_1.AuditModule,
         ],
         providers: [dispute_service_1.DisputeService],

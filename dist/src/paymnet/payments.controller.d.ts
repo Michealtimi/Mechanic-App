@@ -1,0 +1,15 @@
+import { PaymentService } from './payment.services';
+export declare class PaymentController {
+    private readonly paymentService;
+    private readonly RAW_BODY_KEY;
+    constructor(paymentService: PaymentService);
+    initiatePayment(): Promise<any>;
+    verifyPayment(reference: string): Promise<{
+        message: string;
+        status: any;
+        amount: any;
+    }>;
+    handleWebhook(paystackSignature: string, flutterwaveSignature: string, payload: any): Promise<{
+        received: boolean;
+    }>;
+}

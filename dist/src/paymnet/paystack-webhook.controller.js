@@ -11,21 +11,37 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var PaystackWebhookController_1;
+var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PaystackWebhookController = void 0;
 const common_1 = require("@nestjs/common");
-const payment_services_1 = require("./payment.services");
-let PaystackWebhookController = class PaystackWebhookController {
-    paymentService;
-    constructor(paymentService) {
-        this.paymentService = paymentService;
+const payments_service_1 = require("./payments.service");
+let PaystackWebhookController = PaystackWebhookController_1 = class PaystackWebhookController {
+    paymentsService;
+    logger = new common_1.Logger(PaystackWebhookController_1.name);
+    constructor(paymentsService) {
+        this.paymentsService = paymentsService;
     }
     async handlePaystackWebhook(signature, req) {
+        this.logger.log('Received Paystack webhook.');
         if (!signature) {
+            this.logger.warn('Paystack webhook received without x-paystack-signature header.');
             throw new common_1.ForbiddenException('Paystack signature missing.');
         }
-        await this.paymentService.handleWebhook(signature, req.rawBody);
-        return { received: true };
+        if (!req.rawBody) {
+            this.logger.error('Raw body not available for Paystack webhook. Check NestJS config.');
+            throw new common_1.ForbiddenException('Raw body not available for signature verification.');
+        }
+        try {
+            await this.paymentsService.handleWebhook(signature, req.rawBody);
+            this.logger.log('Paystack webhook processed successfully.');
+            return { received: true, message: 'Webhook processed successfully' };
+        }
+        catch (error) {
+            this.logger.error(`Error processing Paystack webhook: ${error.message}`, error.stack);
+            throw error;
+        }
     }
 };
 exports.PaystackWebhookController = PaystackWebhookController;
@@ -38,8 +54,8 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], PaystackWebhookController.prototype, "handlePaystackWebhook", null);
-exports.PaystackWebhookController = PaystackWebhookController = __decorate([
+exports.PaystackWebhookController = PaystackWebhookController = PaystackWebhookController_1 = __decorate([
     (0, common_1.Controller)('webhooks/paystack'),
-    __metadata("design:paramtypes", [payment_services_1.PaymentService])
+    __metadata("design:paramtypes", [typeof (_a = typeof payments_service_1.PaymentsService !== "undefined" && payments_service_1.PaymentsService) === "function" ? _a : Object])
 ], PaystackWebhookController);
 //# sourceMappingURL=paystack-webhook.controller.js.map
