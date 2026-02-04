@@ -1,0 +1,407 @@
+EV/ICE Mechanic Platform – Full Backend Documentation
+
+1️⃣ Overview
+Product: On-demand mechanic platform (EV + ICE) for B2C and B2B fleets in Nigeria.
+Goals:
+Customers can book mechanics, view them on a map, pay securely, and chat in real-time.
+
+
+Fleets can manage vehicles, dispatch mechanics, monitor EV/ICE metrics.
+
+
+Admin can audit payments, disputes, and platform operations.
+
+
+Platform scales horizontally to thousands of concurrent users.
+
+
+Stack:
+Backend: NestJS (modular monolith)
+
+
+Database: Prisma + PostgreSQL
+
+
+Queues: BullMQ + Redis (payments, notifications, metrics)
+
+
+Real-time: Socket.IO + Redis adapter
+
+
+Scaling: PM2/Kubernetes
+
+
+Authentication: JWT + RBAC
+
+
+Security: TLS, AES-256, HTTP headers, rate-limiting
+
+
+
+2️⃣ Modules & Features Roadmap
+Module
+MVP (v0.1)
+Phase 2 (v0.2)
+Phase 3 (v1.0)
+Users
+CRUD, profile edit, avatar upload, soft delete
+Enterprise SSO, audit enhancements
+Multi-org & cross-platform identity federation
+Organizations / Fleets
+Create org, add vehicles, add mechanics, assign org roles
+Fleet dashboards, auto-assignment algorithms
+Microservice split, predictive fleet management
+Vehicles
+Add vehicles, EV/ICE badge
+API telemetry integration (SOC, battery, range)
+High-frequency EV telemetry streaming
+Bookings
+Multi-segment booking, manual assignment, basic state machine
+Auto-assignment, SLA reminders, B2B overflow posting
+Event sourcing, high-concurrency optimization
+Payments / Wallets
+Escrow + wallet release, platform fee (10%)
+Partial release per segment, B2B wallet operations
+Global currency, advanced refund & capture, microservice split
+Disputes
+Segment-level disputes, evidence upload, <NGN10k auto
+AI-assisted triage, SLA escalation
+Predictive dispute resolution engine
+Ratings / Reviews
+Mechanic ratings & EV-specialty badges
+Weighted EV scoring & leaderboards
+Analytics dashboards, trend insights
+Chat
+Booking-scoped real-time chat
+Persisted per segment, searchable
+Full archive + analytics
+Notifications
+Email, push, SMS via BullMQ
+SLA reminders, delayed push, segmented notifications
+Enterprise event-driven notifications
+Audit / Logging
+Soft delete, log all critical actions
+Advanced search & filters
+Immutable, multi-service audit logs
+RBAC / Multi-Tenancy
+TenantId enforced, role guards
+Advanced fleet policies
+Microservice-level tenant isolation
+EV Telemetry
+Manual input allowed
+API integrations (Smartcar, Tor Loco, Hyundai, etc.)
+Predictive analytics, real-time streaming
+
+
+3️⃣ Database Schema
+Core Tables
+User: id, name, email, phone, roles, orgIds, avatarUrl, softDelete
+
+
+Organization: id, name, ownerId, type(B2B/B2C), walletBalance
+
+
+Vehicle: id, orgId, VIN, type(EV/ICE), telematics(json), status, lat, lng
+
+
+Booking: id, customerId, vehicleId, orgId, status, totalPrice, platformFee
+
+
+BookingSegment: id, bookingId, mechanicId, type, status, price
+
+
+Payment: id, bookingSegmentId, walletFrom, walletTo, amount, status, paymentGatewayId
+
+
+Dispute: id, bookingSegmentId, evidenceUrls, status, escalationLevel
+
+
+EVMetrics: id, vehicleId, batteryLevel, SOC, rangeKm, timestamp
+
+
+AuditLog: id, entity, entityId, action, actorId, timestamp
+
+
+
+4️⃣ API Contracts
+Users
+POST /users → Create account
+
+
+GET /users/:id → Retrieve profile
+
+
+PUT /users/:id → Update profile / avatar
+
+
+DELETE /users/:id → Soft delete
+
+
+Organizations
+POST /orgs → Create org
+
+
+PUT /orgs/:id → Update org info / roles / vehicles
+
+
+GET /orgs/:id/vehicles → List org vehicles
+
+
+Vehicles
+POST /vehicles → Add vehicle
+
+
+GET /vehicles/:id → Retrieve vehicle info
+
+
+PUT /vehicles/:id → Update vehicle / EV badge
+
+
+POST /vehicles/:id/metrics → Push telemetry data (Phase 2+)
+
+
+Bookings
+POST /bookings → Create multi-segment booking
+
+
+PUT /bookings/:id → Update booking status
+
+
+GET /bookings/:id → Retrieve booking details
+
+
+Payments
+POST /payments → Escrow/wallet transactions
+
+
+PUT /payments/:id/release → Release funds
+
+
+Webhook endpoints for Paystack / Flutterwave
+
+
+Disputes
+POST /disputes → Open dispute
+
+
+PUT /disputes/:id → Resolve / escalate
+
+
+Chat
+POST /chat/:bookingId → Send message
+
+
+GET /chat/:bookingId → Retrieve messages
+
+
+EV Metrics
+GET /vehicles/:id/metrics → Fetch telemetry (Phase 2+)
+
+
+
+5️⃣ Business Logic
+Bookings:
+Multi-segment jobs (battery swap, tires, etc.)
+
+
+Single or multiple mechanics per booking
+
+
+Pricing: segment sum + platform fee
+
+
+EV-only jobs assigned to certified EV mechanics
+
+
+Payments / Escrow:
+Customer pays → escrow → segment completion → release
+
+
+Partial releases for failed segments
+
+
+B2B internal jobs → wallet transfer, no escrow
+
+
+Disputes:
+Auto-triage for <NGN10k
+
+
+Evidence required: photos, GPS, logs
+
+
+SLA 24hr for admin escalation
+
+
+RBAC & Multi-Tenancy:
+PlatformAdmin → full access
+
+
+OrgOwner → billing / org settings
+
+
+OrgAdmin/FleetManager → manage fleet & dispatch
+
+
+Dispatcher → internal job assignment
+
+
+Mechanic → multi-org
+
+
+Customer → personal org, single org booking
+
+
+EV Safety:
+EV badge required for high-voltage jobs
+
+
+Maximum 50km radius for unproven mechanics
+
+
+
+6️⃣ Queues & Background Jobs (BullMQ)
+Job Type
+MVP
+Phase 2
+Phase 3
+Payments
+Process wallets, retries, dead-letter
+Partial release, SLA triggers
+Kafka/event-driven payments
+Notifications
+Email/push/SMS
+SLA reminders, delayed push
+Event-driven enterprise notifications
+Metrics
+N/A
+Telemetry sync
+Real-time, predictive analytics
+Reminders / Escalation
+N/A
+SLA reminders, dispute auto-triage
+Cross-service orchestration
+
+
+7️⃣ Security & Compliance
+JWT + Refresh Tokens
+
+
+RBAC & tenantId isolation
+
+
+Helmet middleware (CSP, X-Frame-Options, HSTS, Permissions-Policy)
+
+
+TLS 1.3 + AES-256 at rest
+
+
+Rate-limiting / throttling
+
+
+Webhook signature verification (Paystack/Flutterwave)
+
+
+Input validation, XSS/SQL prevention
+
+
+Audit logs, 2-year retention
+
+
+Backup & disaster recovery: daily encrypted DB backups, Redis persistence
+
+
+
+8️⃣ Google Maps / Geolocation Integration
+Endpoints:
+
+
+/locations/mechanics?lat=&lng=&radius= → Nearby mechanics
+
+
+/vehicles/:id/location → Vehicle location updates
+
+
+Backend: Redis cache for frequent lookups
+
+
+Security: Validate coordinates, limit precision, restrict API usage
+
+
+Phase 2+: Route optimization, fleet heatmaps, SLA auto-assignment
+
+
+
+9️⃣ Scaling & Upgrade Path
+MVP (v0.1):
+BullMQ + Redis queues, Socket.IO + Redis, monolith → 10k concurrent users
+
+
+Phase 2 (v0.2):
+Telemetry API integrations, AI dispute triage, analytics dashboards
+
+
+Phase 3 (v1.0):
+Kafka event bus, microservices, predictive analytics, high-frequency EV telemetry
+
+
+Monitoring Triggers:
+Redis memory > 80% → add shards
+
+
+BullMQ queue lag > 5 min → RabbitMQ / microservice split
+
+
+P95 latency > 500ms → read replicas
+
+
+
+10️⃣ Team Deliverables (MVP)
+Implement modular NestJS backend modules
+
+
+Prisma DB schema & migrations
+
+
+API routes & DTO validation
+
+
+RBAC & multi-tenancy enforcement
+
+
+BullMQ queues & retry/dead-letter handling
+
+
+Escrow & wallet transactional logic
+
+
+EV/ICE badge enforcement
+
+
+Audit logs & soft deletes
+
+
+Google Maps integration for mechanic/fleet locations
+
+
+Security headers, JWT, rate limiting, TLS
+
+
+
+This is a complete backend documentation, covering MVP → Phase 2 → Phase 3, with:
+Modules & APIs
+
+
+Business logic
+
+
+Queues / background jobs
+
+
+Security & compliance
+
+
+EV telemetry + Google Maps
+
+
+Scaling & upgrade roadmap

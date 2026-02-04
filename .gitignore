@@ -1,0 +1,30 @@
+node_modules
+# Keep environment variables out of version control
+.env
+.env.*
+!.env.example
+
+# Sensitive documentation files
+REMAINING_FIXES.md
+DATABASE_SETUP.md
+*_FIXES.md
+*SECRET*.md
+*.secret
+*.key
+*SETUP*.md
+
+# Build outputs
+dist/
+build/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

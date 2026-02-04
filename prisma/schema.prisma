@@ -1,0 +1,881 @@
+// This is your complete, updated Prisma schema.
+// It incorporates features like real-time mechanic location,
+// EV specialization, granular availability, ratings, reviews,
+// and robust chat relations.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// NEW: Enum for more precise mechanic online/availability status
+enum MechanicOnlineStatus {
+  ONLINE // Actively online and looking for jobs
+  OFFLINE // Not online or not taking jobs
+  ON_JOB // Currently on a job, not available for new ones
+  BUSY // Temporarily unavailable for other reasons
+  BREAK // On a break
+}
+
+enum BookingStatus {
+  PENDING //
+  CONFIRMED // B
+  SCHEDULED // Booking is officially on the calendar
+  IN_PROGRESS // Mechanic is actively working on the service
+  COMPLETED // Service has been rendered
+  CANCELLED // Booking cancelled by customer or mechanic
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  CANCELLED
+  AUTHORIZED
+  CAPTURED
+  REFUNDED
+  PARTIALLY_REFUNDED
+  CHARGEBACK
+  EXPIRED
+}
+
+enum PaymentEventType {
+  INITIATED
+  VERIFIED
+  WEBHOOK
+  CAPTURED
+  REFUND
+  CHARGEBACK
+}
+
+model PaymentEvent {
+  id           String           @id @default(uuid())
+  paymentId    String
+  gateway      String // e.g., "STRIPE", "PAYSTACK"
+  gatewayEvent String // The ID from the provider (e.g., "evt_123")
+  type         PaymentEventType // Now type-safe!
+  rawPayload   Json
+  createdAt    DateTime         @default(now())
+
+  @@unique([gateway, gatewayEvent])
+  @@index([paymentId])
+}
+
+enum DisputeStatus {
+  PENDING
+  RESOLVED
+  REJECTED
+}
+
+enum Role {
+  SUPERADMIN
+  ADMIN
+  MECHANIC
+  CUSTOMER
+  MERCHANT // B2B sourcing marketplace trader
+}
+
+enum Status {
+  PENDING // For accounts awaiting approval/verification (e.g., mechanic onboarding)
+  ACTIVE // Account is active and can operate normally
+  APPROVED // Explicitly approved (e.g., after a mechanic verification process)
+  REJECTED // Account was rejected
+}
+
+enum DealStatus {
+  ORDERED
+  PAID
+  DELIVERED
+  DISPUTED
+  CANCELLED
+  COMPLETED
+}
+
+enum OrgType {
+  B2B
+  B2C
+}
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  FLEET_MANAGER
+  DISPATCHER
+  MEMBER
+}
+
+enum VehicleType {
+  EV
+  ICE
+}
+
+enum VehicleStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+}
+
+enum SegmentStatus {
+  PENDING
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum MetricSource {
+  MANUAL
+  SMARTCAR
+  TOR_LOCO
+  HYUNDAI
+  OTHER
+}
+
+// =========================================================================
+// Core Models
+// =========================================================================
+
+// --------------------------------------------------------------------------------
+// Organization & Multi-Tenancy Models
+// --------------------------------------------------------------------------------
+model Organization {
+  id            String    @id @default(uuid())
+  name          String
+  ownerId       String
+  type          OrgType   @default(B2C) // B2B for fleets, B2C for personal orgs
+  walletBalance Decimal   @default(0) @db.Decimal(10, 2) // Deprecated: Use OrganizationWallet instead
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime? // Soft delete
+
+  owner                User                  @relation("OrgOwner", fields: [ownerId], references: [id])
+  members              OrgMember[]
+  vehicles             Vehicle[]
+  bookings             Booking[]
+  wallet               OrganizationWallet? // B2B wallet operations
+  apiKeys              ApiKey[] // Phase 3: Public API keys
+  webhookSubscriptions WebhookSubscription[] // Phase 3: App ecosystem webhooks
+
+  @@index([ownerId])
+  @@index([type])
+}
+
+// --------------------------------------------------------------------------------
+// Vehicle Model
+// --------------------------------------------------------------------------------
+model Vehicle {
+  id         String        @id @default(uuid())
+  orgId      String
+  vin        String?       @unique
+  type       VehicleType
+  make       String?
+  model      String?
+  year       Int?
+  telematics Json? // Flexible JSON for telemetry data
+  status     VehicleStatus @default(ACTIVE)
+  lat        Decimal?      @db.Decimal(10, 8)
+  lng        Decimal?      @db.Decimal(11, 8)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  deletedAt  DateTime? // Soft delete
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  bookings     Booking[]
+  metrics      EVMetric[]
+  serviceRecords VehicleServiceRecord[]
+
+  @@index([orgId])
+  @@index([lat, lng])
+  @@index([type])
+  @@index([status])
+}
+
+// --------------------------------------------------------------------------------
+// Booking Segment Model (for multi-segment bookings)
+// --------------------------------------------------------------------------------
+model BookingSegment {
+  id          String        @id @default(uuid())
+  bookingId   String
+  mechanicId  String?
+  type        String // e.g., "battery_swap", "tire_change", "oil_change"
+  status      SegmentStatus @default(PENDING)
+  price       Decimal       @db.Decimal(10, 2)
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  booking   Booking    @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  mechanic  User?      @relation("MechanicSegments", fields: [mechanicId], references: [id])
+  payments  Payment[]
+  disputes  Dispute[]
+  chatRooms ChatRoom[]
+
+  @@index([bookingId])
+  @@index([mechanicId])
+  @@index([status])
+}
+
+// --------------------------------------------------------------------------------
+// EV Metrics Model
+// --------------------------------------------------------------------------------
+model EVMetric {
+  id           String       @id @default(uuid())
+  vehicleId    String
+  batteryLevel Float? // 0-100 percentage
+  soc          Float? // State of Charge
+  rangeKm      Float?
+  timestamp    DateTime     @default(now())
+  source       MetricSource @default(MANUAL)
+  metadata     Json?
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([vehicleId])
+  @@index([timestamp])
+}
+
+model OrgMember {
+  id        String   @id @default(uuid())
+  orgId     String
+  userId    String
+  role      OrgRole  @default(MEMBER)
+  createdAt DateTime @default(now())
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, userId])
+  @@index([orgId])
+  @@index([userId])
+}
+
+model Skill {
+  id    String @id @default(uuid())
+  name  String @unique // The name of the skill (e.g., 'Brake Repair')
+  users User[] // This creates the relationship back to the User model
+}
+
+model User {
+  id          String    @id @default(uuid())
+  email       String    @unique
+  password    String
+  firstName   String?
+  lastName    String?
+  phoneNumber String?
+  pushToken   String?
+  role        Role      @default(CUSTOMER)
+  status      Status    @default(PENDING) // Account approval/verification status
+  tenantId    String? // Multi-tenancy: organization ID for data isolation
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  lastLogin   DateTime? // (Existing) updated on login
+
+  // -----------------------------------------------------------------------
+  // CHANGED/ADDED: Mechanic Specific Fields (when role is MECHANIC)
+  // These fields replace the vague 'location' and add crucial features.
+  // -----------------------------------------------------------------------
+  shopName             String?
+  // REMOVED: `location: String?` (from your previous schema, replaced by lat/lng)
+  currentLat           Float? // ADDED: Mechanic's current/last known latitude for geo-search
+  currentLng           Float?
+  payouts              Payout[]             @relation("MechanicPayouts") // A mechanic (user) can have many payouts
+  apiKeys              ApiKey[] // Phase 3: Public API keys                            // ADDED: Mechanic's current/last known longitude for geo-search
+  isAvailableForJobs   Boolean              @default(false) // ADDED: Simple toggle for a mechanic's immediate readiness for work
+  mechanicOnlineStatus MechanicOnlineStatus @default(OFFLINE) // ADDED: Granular online/availability status (uses NEW Enum)
+  isEvSpecialist       Boolean              @default(false) // ADDED: CRITICAL: Flag for EV specific matching
+  serviceRadiusKm      Int                  @default(20) // ADDED: Max distance (in km) mechanic is willing to travel for a job
+  isExternal           Boolean              @default(false) // Phase 3: External mechanic flag
+  commissionRate       Float? // Phase 3: Commission rate (%) for external mechanics
+  verifiedAt           DateTime? // Phase 3: When external mechanic was verified
+  verifiedBy           String? // Phase 3: Admin who verified the mechanic
+  rejectionReason      String? // Phase 3: Reason for rejection
+  commissionUpdatedAt  DateTime? // Phase 3: When commission rate was last updated
+  commissionUpdatedBy  String? // Phase 3: Admin who updated commission rate
+
+  skills            Skill[] // (Existing) array of skills (many-to-many with Skill model)
+  experienceYears   Int?
+  profilePictureUrl String?
+  bio               String?  @db.Text // (Existing) Use @db.Text for potentially long text
+  certificationUrls String[] // (Existing) Array of URLs to certifications
+
+  averageRating      Float @default(0.0) // ADDED: Current average rating (e.g., 4.7)
+  totalReviews       Int   @default(0) // ADDED: Total number of reviews received
+  totalJobsCompleted Int   @default(0) // ADDED: Total number of completed jobs metric
+
+  // -----------------------------------------------------------------------
+  // Relations
+  // -----------------------------------------------------------------------
+  CustomerBookings Booking[]         @relation("CustomerBookings") // (Existing) Bookings as a customer
+  writtenReviews   Review[]          @relation("CustomerReviews")
+  MechanicBookings Booking[]         @relation("MechanicBookings") // (Existing) Bookings as a mechanic
+  mechanicServices MechanicService[] // (Existing) Services offered by this mechanic
+  refreshTokens    RefreshToken[] // (Existing) Relation to stored refresh tokens
+  dispatches       Dispatch[]        @relation("MechanicDispatches")
+  auditLogs        AuditLog[]        @relation("UserAuditLogs") // (Existing) Relation to audit logs
+  subaccounts      Subaccount[] // (Existing) Payment subaccounts
+  disputes         Dispute[] // (Existing) Disputes involving this user
+  wallets          Wallet[] // (Existing) Wallets
+  payments         Payment[] // (Existing) Payments made by this user
+
+  reviews             Review[]         @relation("MechanicReviews") // ADDED: Reviews received by this mechanic (if role is MECHANIC)
+  // CHANGED: Explicitly named relations for ChatRoom (crucial for clarity and correctness)
+  chatRoomsAsCustomer ChatRoom[]       @relation("CustomerChatRooms") // ADDED: Chat rooms where this user is the customer
+  chatRoomsAsMechanic ChatRoom[]       @relation("MechanicChatRooms") // ADDED: Chat rooms where this user is the mechanic
+  sentMessages        ChatMessage[]    @relation("Sender")
+  segments            BookingSegment[] @relation("MechanicSegments") // Segments assigned to this mechanic
+
+  // -----------------------------------------------------------------------
+  // VIN Trojan Horse (quick login, deferred verification)
+  // -----------------------------------------------------------------------
+  emailVerifiedAt      DateTime?  // Set when user verifies email; gate high-intent actions
+  authProvider         String?    // 'google' | 'email' | 'phone' for quick-register source
+  vinCheckResults      VinCheckResult[]
+
+  // -----------------------------------------------------------------------
+  // Organization Relations
+  // -----------------------------------------------------------------------
+  ownedOrganizations   Organization[]        @relation("OrgOwner") // Organizations owned by this user
+  orgMemberships       OrgMember[] // Organizations this user belongs to
+  webhookSubscriptions WebhookSubscription[]
+
+  // -----------------------------------------------------------------------
+  // Indices (Added for performance on mechanic-related queries)
+  // -----------------------------------------------------------------------
+  @@index([currentLat, currentLng]) // ADDED: For efficient geographical queries
+  @@index([isAvailableForJobs]) // ADDED: For quickly finding available mechanics
+  @@index([averageRating]) // ADDED: For sorting mechanics by quality
+  @@index([tenantId]) // Multi-tenancy index
+}
+
+// --------------------------------------------------------------------------------
+// VIN Check Result (Trojan Horse: short-lived, shareable)
+// --------------------------------------------------------------------------------
+model VinCheckResult {
+  id        String   @id @default(cuid())
+  vin       String
+  payload   Json     // normalized { make, model, year, bodyClass, ... } from NHTSA
+  ip        String?
+  userId    String?
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  @@index([expiresAt])
+  @@index([userId])
+}
+
+model MechanicService {
+  id            String    @id @default(uuid())
+  title         String
+  description   String?
+  price         Float
+  estimatedTime String?
+  availability  String? // Consider making this a more structured type (e.g., JSON or separate Availability model)
+  mechanicId    String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  bookings      Booking[]
+  mechanic      User      @relation(fields: [mechanicId], references: [id])
+}
+
+// --------------------------------------------------------------------------------
+// Booking Model
+// --------------------------------------------------------------------------------
+model Booking {
+  id          String        @id @default(uuid())
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  customerId  String
+  mechanicId  String? // Make optional if mechanic is assigned AFTER booking created
+  serviceId   String
+  status      BookingStatus @default(PENDING) // (Existing) Overall booking lifecycle status
+  scheduledAt DateTime
+  price       Decimal       @db.Decimal(10, 2) // (Existing) CRITICAL: Use Decimal for monetary values (e.g., 99999999.99)
+
+  // --- NEW FIELDS FOR PICKUP LOCATION ---
+  pickupLatitude      Decimal @db.Decimal(10, 8) // Latitude, e.g., 90.00000000
+  pickupLongitude     Decimal @db.Decimal(11, 8) // Longitude, e.g., 180.00000000
+  pickupAddress       String // The human-readable address
+  pickupLocationNotes String?
+  // Optional notes from customer (e.g., "blue gate")
+  // --- END NEW FIELDS ---
+
+  // Relations
+  customer User            @relation("CustomerBookings", fields: [customerId], references: [id])
+  mechanic User?           @relation("MechanicBookings", fields: [mechanicId], references: [id]) // Make optional for mechanic
+  service  MechanicService @relation(fields: [serviceId], references: [id])
+
+  chatRooms ChatRoom[] // Changed to one-to-many for segment-based chats
+  payments  Payment[] // Changed to one-to-many for segment-based payments
+
+  disputes     Dispute[] // (Existing) A booking can have multiple disputes
+  reviews      Review[]
+  dispatches   Dispatch[] // Invisible Foreman: multiple offers per booking (3 then 5)
+  slaRecord    SlaRecord? // NEW: A booking can have one related SLA record
+  segments     BookingSegment[] // Multi-segment bookings
+  organization Organization?    @relation(fields: [orgId], references: [id])
+  orgId        String? // Organization ID for multi-tenancy
+  vehicle      Vehicle?         @relation(fields: [vehicleId], references: [id])
+  vehicleId    String? // Vehicle ID (for fleet bookings)
+  totalPrice   Decimal?         @db.Decimal(10, 2) // Total price from all segments
+  platformFee  Decimal?         @db.Decimal(10, 2) // Cost recovery: ₦100 + 2% of service total
+
+  completionPin CompletionPin?
+  jobReceipt    JobReceipt?
+
+  @@index([createdAt])
+  @@index([customerId])
+  @@index([mechanicId])
+  @@index([status])
+}
+
+// --------------------------------------------------------------------------------
+// Chat Models
+// --------------------------------------------------------------------------------
+model ChatRoom {
+  id               String  @id @default(cuid()) // Unique identifier for the chat room
+  customerId       String // ID of the customer participating in this chat
+  mechanicId       String // ID of the mechanic participating in this chat
+  bookingId        String? // Changed from unique to allow multiple chat rooms per booking (for segments)
+  bookingSegmentId String? // Link to specific segment
+
+  createdAt DateTime @default(now()) // Timestamp when the chat room was created
+  updatedAt DateTime @updatedAt // Timestamp of the last update to the chat room
+
+  messages ChatMessage[] // (Existing) Relation: A chat room can have many messages
+
+  // CHANGED: Explicitly named relations to User model from ChatRoom side
+  customer       User            @relation("CustomerChatRooms", fields: [customerId], references: [id])
+  mechanic       User            @relation("MechanicChatRooms", fields: [mechanicId], references: [id])
+  booking        Booking?        @relation(fields: [bookingId], references: [id])
+  bookingSegment BookingSegment? @relation(fields: [bookingSegmentId], references: [id])
+
+  @@unique([customerId, mechanicId, bookingSegmentId]) // Ensures one chat room per customer-mechanic-segment
+  @@index([bookingSegmentId])
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid()) // Unique identifier for the message
+  roomId    String // ID of the ChatRoom this message belongs to
+  senderId  String // ID of the User (customer or mechanic) who sent this message
+  message   String // The actual content of the message
+  createdAt DateTime @default(now()) // Timestamp when the message was sent
+
+  room   ChatRoom @relation(fields: [roomId], references: [id]) // (Existing) Relation: Links message to its ChatRoom
+  sender User     @relation("Sender", fields: [senderId], references: [id]) // ADDED: Relation to the User model as sender
+}
+
+// --------------------------------------------------------------------------------
+// Payment & Wallet Models
+// --------------------------------------------------------------------------------
+model Payment {
+  id                 String        @id @default(cuid())
+  reference          String        @unique
+  userId             String
+  bookingId          String? // Changed from unique to allow multiple payments per booking (for segments)
+  bookingSegmentId   String? // Link to specific booking segment
+  gateway            String
+  amount             Decimal
+  refundedAmount     Decimal       @default(0)
+  status             PaymentStatus @default(PENDING)
+  walletFrom         String? // For B2B wallet transfers
+  walletTo           String? // For B2B wallet transfers
+  metadata           Json?
+  rawGatewayResponse Json?
+  createdAt          DateTime      @default(now())
+  verifiedAt         DateTime? // (Existing) Timestamp when the payment was successfully verified
+  updatedAt          DateTime      @updatedAt
+  tenantId           String? // Multi-tenancy support
+
+  // Relations
+  user           User            @relation(fields: [userId], references: [id]) // (Existing) The customer who paid
+  booking        Booking?        @relation(fields: [bookingId], references: [id])
+  bookingSegment BookingSegment? @relation(fields: [bookingSegmentId], references: [id])
+
+  @@index([bookingId])
+  @@index([bookingSegmentId])
+  @@index([tenantId])
+}
+
+model Wallet {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  balance   Decimal  @default(0) // (Existing) in kobo or smallest currency unit
+  pending   Decimal  @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user              User                @relation(fields: [userId], references: [id])
+  WalletTransaction WalletTransaction[]
+}
+
+model WalletTransaction {
+  id           String   @id @default(cuid())
+  walletId     String?
+  orgWalletId  String? // For organization wallet transactions
+  bookingId    String? // (Existing) Link to a specific booking that triggered this transaction
+  type         String // (Existing) "CREDIT" | "DEBIT" | "PENDING" | "TRANSFER"
+  amount       Decimal
+  balanceAfter Decimal
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  wallet    Wallet?             @relation(fields: [walletId], references: [id])
+  orgWallet OrganizationWallet? @relation(fields: [orgWalletId], references: [id])
+
+  @@index([walletId])
+  @@index([orgWalletId])
+  @@index([bookingId])
+}
+
+// Organization Wallet Model for B2B operations
+model OrganizationWallet {
+  id        String   @id @default(cuid())
+  orgId     String   @unique
+  balance   Decimal  @default(0) @db.Decimal(10, 2)
+  pending   Decimal  @default(0) @db.Decimal(10, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  transactions WalletTransaction[]
+
+  @@index([orgId])
+}
+
+enum PayoutStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED // Added a 'CANCELLED' status for more robust workflow management
+}
+
+model Payout {
+  id         String @id @default(cuid())
+  mechanicId String
+  mechanic   User   @relation("MechanicPayouts", fields: [mechanicId], references: [id]) // Establish relationship to User (as Mechanic)
+
+  amount Decimal      @db.Decimal(10, 2) // Changed from Int to Decimal for monetary accuracy
+  status PayoutStatus @default(PENDING) // Changed from String to PayoutStatus enum
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Optional: Add a transactionId from a payment gateway if applicable
+  transactionId String?
+  // Optional: Add a reason for failed/cancelled payouts
+  failureReason String? @db.VarChar(255)
+}
+
+model Subaccount {
+  id               String   @id @default(cuid())
+  mechanicId       String
+  gateway          String // e.g. PAYSTACK, FLUTTERWAVE
+  subaccountCode   String
+  bankCode         String
+  accountNumber    String
+  provider         String // 'paystack' | 'flutterwave'
+  subaccountId     String // The ID assigned by the payment gateway
+  percentageCharge Float // platform commission (e.g. 10 = 10%)
+  status           String   @default("pending") // pending|active|rejected
+  businessName     String
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  mechanic User @relation(fields: [mechanicId], references: [id])
+}
+
+// --------------------------------------------------------------------------------
+// Dispute, RefreshToken, AuditLog Models
+// --------------------------------------------------------------------------------
+model Dispute {
+  id               String        @id @default(cuid())
+  bookingId        String? // Link to booking (required for raising dispute)
+  bookingSegmentId String? // Link to specific segment (for segment-level disputes)
+  userId           String // User who initiated the dispute (customer or mechanic)
+  reason           String        @db.Text
+  status           DisputeStatus @default(PENDING)
+  resolution       String?       @db.Text
+  resolvedAmount   Decimal?
+  resolvedAt       DateTime?
+  evidenceUrls     String[] // Array of evidence file URLs
+  escalationLevel  Int           @default(0)
+  priority         Int           @default(2) // 1=Low, 2=Medium, 3=High, 4=Critical
+  escalatedAt      DateTime?
+  escalatedBy      String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  tenantId         String? // Multi-tenancy support
+
+  booking        Booking?        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  bookingSegment BookingSegment? @relation(fields: [bookingSegmentId], references: [id])
+  user           User            @relation(fields: [userId], references: [id])
+
+  @@index([bookingId])
+  @@index([bookingSegmentId])
+  @@index([tenantId])
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid()) // (Existing) jti (JWT ID)
+  token     String // (Existing) hashed refresh token
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  revoked   Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  timestamp DateTime @default(now())
+
+  actor     String // (Existing) ID of the user who performed the action
+  entity    String // (Existing) Name of the entity being acted upon (e.g., 'Booking', 'User')
+  entityId  String // (Existing) ID of the entity instance
+  action    String // Type of action (e.g., 'CREATE', 'UPDATE', 'DELETE', 'LOGIN')
+  before    Json? // State of the entity before the action
+  after     Json? // State of the entity after the action
+  ip        String?
+  userAgent String?
+  metadata  Json? // Additional relevant data
+  tenantId  String? // Multi-tenancy support
+  user      User    @relation("UserAuditLogs", fields: [actor], references: [id])
+
+  @@index([tenantId])
+}
+
+// =========================================================================
+// NEW: Review Model (Crucial for platform trust and mechanic reputation)
+// =========================================================================
+
+// ADDED: Model for customer reviews of mechanics
+model Review {
+  id         String   @id @default(uuid())
+  rating     Int // Rating from 1 to 5 stars
+  comment    String?  @db.Text
+  customerId String // User who wrote the review
+  mechanicId String // Mechanic being reviewed
+  bookingId  String?  @unique // Optional: Link review to a specific booking (made unique for one review per booking)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  customer User     @relation("CustomerReviews", fields: [customerId], references: [id]) // Customer who wrote the review
+  mechanic User     @relation("MechanicReviews", fields: [mechanicId], references: [id]) // Mechanic being reviewed
+  booking  Booking? @relation(fields: [bookingId], references: [id])
+
+  @@unique([customerId, mechanicId, bookingId]) // Ensures a customer reviews a mechanic for a SPECIFIC booking only once
+  @@index([mechanicId]) // For querying all reviews for a specific mechanic
+}
+
+// =========================================================================
+// NEW: Dispatch & SLA Models
+// =========================================================================
+
+enum DispatchStatus {
+  SEARCHING
+  OFFERED
+  ACCEPTED
+  REJECTED
+  CANCELLED
+  TIMEOUT
+}
+
+model Dispatch {
+  id         String         @id @default(uuid())
+  bookingId  String
+  mechanicId String
+  status     DispatchStatus @default(OFFERED)
+  expiresAt  DateTime?      // Invisible Foreman: 2-min offer window
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  booking  Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  mechanic User    @relation("MechanicDispatches", fields: [mechanicId], references: [id])
+
+  @@index([bookingId])
+  @@index([mechanicId])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+enum SlaStatus {
+  PENDING
+  MET
+  BREACHED
+}
+
+model SlaRecord {
+  id           String    @id @default(uuid())
+  bookingId    String    @unique
+  status       SlaStatus @default(PENDING)
+  breachReason String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  // Optional for Google Maps SLA tracking
+  expectedArrivalMs Int? // milliseconds from assignment to expected arrival
+  distanceMeters    Int? // travel distance in meters
+}
+
+// --------------------------------------------------------------------------------
+// API Keys Model (Phase 3: Public API)
+// --------------------------------------------------------------------------------
+model ApiKey {
+  id                 String    @id @default(uuid())
+  name               String
+  keyHash            String    @unique // Hashed API key
+  keyPrefix          String // For display (e.g., "mec_abc123...")
+  userId             String
+  organizationId     String? // Optional: for organization-scoped keys
+  isActive           Boolean   @default(true)
+  rateLimitPerMinute Int       @default(60)
+  allowedIps         Json? // Array of allowed IP addresses
+  scopes             Json? // Array of permissions (e.g., ["read", "write"])
+  lastUsedAt         DateTime?
+  revokedAt          DateTime?
+  revokeReason       String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([isActive])
+}
+
+// --------------------------------------------------------------------------------
+// Webhook Subscriptions Model (Phase 3: App Ecosystem)
+// --------------------------------------------------------------------------------
+model WebhookSubscription {
+  id             String   @id @default(uuid())
+  url            String
+  events         Json // Array of event types
+  userId         String
+  organizationId String?
+  secret         String? // Secret for signature verification
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([isActive])
+}
+
+// --------------------------------------------------------------------------------
+// Invisible Foreman: Completion PIN (Proof-of-Fix — release payment only when PIN verified)
+// --------------------------------------------------------------------------------
+model CompletionPin {
+  id        String    @id @default(uuid())
+  bookingId String    @unique
+  pinHash   String    // Hashed 4-digit PIN
+  expiresAt DateTime
+  verifiedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@index([expiresAt])
+}
+
+// --------------------------------------------------------------------------------
+// Invisible Foreman: Job Receipt (Vehicle Health Certificate — EV jobs only, static image for WhatsApp)
+// --------------------------------------------------------------------------------
+model JobReceipt {
+  id         String   @id @default(uuid())
+  bookingId  String    @unique
+  imageUrl   String
+  createdAt  DateTime @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+}
+
+// --------------------------------------------------------------------------------
+// Invisible Foreman: Vehicle Service Record (Predictive Fleet Garage — manual + telemetry)
+// --------------------------------------------------------------------------------
+enum ServiceRecordSource {
+  MANUAL
+  TELEMETRY
+}
+
+model VehicleServiceRecord {
+  id           String              @id @default(uuid())
+  vehicleId    String
+  bookingId    String?
+  bookingSegmentId String?
+  type         String              // e.g. "oil_change", "brake_pads", "battery_swap"
+  serviceDate  DateTime
+  odometerKm   Float?
+  notes        String?             @db.Text
+  source       ServiceRecordSource @default(MANUAL)
+  createdAt    DateTime            @default(now())
+
+  vehicle Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([vehicleId])
+  @@index([serviceDate])
+}
+
+// --------------------------------------------------------------------------------
+// Revenue Share (Persisted for reporting and billing — Sprint 1)
+// --------------------------------------------------------------------------------
+model RevenueShare {
+  id                 String   @id @default(uuid())
+  bookingId          String   @unique
+  totalAmount        Decimal  @db.Decimal(10, 2)
+  platformFee        Decimal  @db.Decimal(10, 2)
+  mechanicCommission Decimal  @db.Decimal(10, 2)
+  commissionRate     Float
+  mechanicId         String?
+  isExternal         Boolean  @default(false)
+  createdAt          DateTime @default(now())
+
+  @@index([mechanicId])
+  @@index([createdAt])
+}
+
+// --------------------------------------------------------------------------------
+// Platform Config (Editable commission / dispatch / geofence — no code deploy to change)
+// --------------------------------------------------------------------------------
+model PlatformConfig {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+
+  @@index([key])
+}
+
+// --------------------------------------------------------------------------------
+// Geocode Cache (Cost recovery: reduce Google Maps API calls for repeated addresses)
+// --------------------------------------------------------------------------------
+model GeocodeCache {
+  id        String   @id @default(uuid())
+  address   String   @unique // Normalized: trim + lowercase
+  lat       Float
+  lng       Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([address])
+}
+
