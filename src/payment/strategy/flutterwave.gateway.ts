@@ -15,8 +15,7 @@ export class FlutterwaveGateway implements IPaymentGateway {
   private readonly baseUrl = 'https://api.flutterwave.com/v3';
   private readonly secret = process.env.FLW_SECRET_KEY;
   
-  // Define currency here for consistency
-  private readonly currency = 'NGN'; 
+  private readonly currency = (process.env.DEFAULT_CURRENCY || 'NGN').toUpperCase();
 
   constructor() {
     if (!this.secret) {
@@ -64,7 +63,7 @@ export class FlutterwaveGateway implements IPaymentGateway {
   // ----------------------------------------------------------------------
   // 1. initializePayment
   // ----------------------------------------------------------------------
-  async initializePayment({ amount, email, metadata }: InitializePaymentData): Promise<{ paymentUrl: string; reference: string; }> {
+  async initializePayment({ amount, email, metadata }: InitializePaymentData): Promise<{ paymentUrl: string; reference: string; raw?: unknown }> {
     const operation = 'Flutterwave Initialize Payment';
     // ⚠️ FIX: Amount conversion should use Math.round to avoid floating point issues 
     // and correctly handle kobo to naira conversion (amount/100).
@@ -86,10 +85,11 @@ export class FlutterwaveGateway implements IPaymentGateway {
         { headers: this.headers(), timeout: 15000 },
       );
 
-      return {
-        paymentUrl: response.data.data.link,
-        reference: response.data.data.tx_ref,
-      };
+      return {
+        paymentUrl: response.data.data.link,
+        reference: response.data.data.tx_ref,
+        raw: response.data.data,
+      };
     } catch (err) {
       this.handleError(operation, err);
       throw err; // Ensure function throws on error
@@ -158,9 +158,36 @@ export class FlutterwaveGateway implements IPaymentGateway {
     }
   }
 
-  async initiateTransfer(): Promise<{ success: boolean; message?: string; raw?: any }> {
-    this.logger.warn('Flutterwave initiateTransfer not implemented in this gateway.');
-    return { success: false, message: 'Not implemented' };
+  async initiateTransfer(request: import('../interface/payment-gateway.interface').TransferRequest): Promise<import('../interface/payment-gateway.interface').TransferResponse> {
+    const operation = `Flutterwave Transfer ${request.internalReference}`;
+    try {
+      this.logger.log(`💸 ${operation}`);
+      const amountNaira = Math.round(request.amount / 100);
+      const res = await axios.post(
+        `${this.baseUrl}/transfers`,
+        {
+          account_bank: request.bankCode,
+          account_number: request.bankAccountNumber,
+          amount: amountNaira,
+          currency: request.currency || this.currency,
+          narration: request.reason || 'Mechanic payout',
+          reference: request.internalReference,
+          beneficiary_name: request.recipientName,
+        },
+        { headers: this.headers(), timeout: 20000 },
+      );
+      const data = res.data?.data;
+      const success = res.data?.status === 'success';
+      return {
+        success,
+        providerRef: String(data?.id ?? data?.reference ?? ''),
+        message: data?.status || (success ? 'Transfer initiated' : 'Transfer failed'),
+        raw: data,
+      };
+    } catch (err) {
+      this.handleError(operation, err);
+      throw err;
+    }
   }
 
   async refund(reference: string, amount?: number): Promise<RefundResult> {

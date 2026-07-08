@@ -9,12 +9,10 @@ import {
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger, UseGuards } from '@nestjs/common';
-import { WsAuthGuard } from '../auth/guards/ws-auth.guard'; // You'll need to create this WS Auth Guard
+import { Logger, UnauthorizedException, UseGuards } from '@nestjs/common';
+import { WsAuthGuard } from '../auth/guard/ws-auth.guard';
 import { ChatService } from './chat.service';
-import { InitiateChatDto } from './dto/initiate-chat.dto';
-import { SendMessageDto } from './dto/send-message.dto';
-import { AuthenticatedSocket } from '../auth/interfaces/authenticated-socket.interface'; // Custom interface for authenticated socket
+import { AuthenticatedSocket } from '../auth/authenticated-socket.interface';
 
 @WebSocketGateway({
   cors: { origin: '*' }, // Adjust for production
@@ -44,23 +42,23 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // --- 1. Initiate a New Chat Room (or get existing one) ---
   @SubscribeMessage('initiateChat')
   async initiateChat(
-    @MessageBody() dto: InitiateChatDto,
+    @MessageBody() dto: { mechanicId: string; bookingId?: string; initialMessage: string },
     @ConnectedSocket() client: AuthenticatedSocket, // Ensure socket is authenticated
   ) {
     const customerId = client.data.user.id; // Sender is the authenticated customer
 
     try {
       const room = await this.chatService.getOrCreateRoom(
-        customerId,
-        dto.mechanicId,
-        dto.bookingId, // Optional booking link
+        {
+          customerId,
+          mechanicId: dto.mechanicId,
+          bookingId: dto.bookingId,
+        },
       );
 
       // Save the initial message
       const initialMessage = await this.chatService.saveMessage(
-        room.id,
-        customerId, // Sender is authenticated user
-        dto.initialMessage,
+        { roomId: room.id, senderId: customerId, message: dto.initialMessage },
       );
 
       // Inform the client about the new/existing room and the initial message
@@ -86,16 +84,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // --- 2. Send Message to an Existing Chat Room ---
   @SubscribeMessage('sendMessage')
   async sendMessage(
-    @MessageBody() dto: SendMessageDto,
+    @MessageBody() dto: { roomId: string; message: string },
     @ConnectedSocket() client: AuthenticatedSocket, // Ensure socket is authenticated
   ) {
     const senderId = client.data.user.id; // Sender is the authenticated user
 
     try {
       const message = await this.chatService.saveMessage(
-        dto.roomId,
-        senderId, // Sender is securely derived from authentication
-        dto.message,
+        { roomId: dto.roomId, senderId, message: dto.message },
       );
 
       // Broadcast the new message to all participants in the room
@@ -140,7 +136,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     try {
-      const messages = await this.chatService.getMessages(roomId);
+      const messages = await this.chatService.getMessages(roomId, { skip: 0, take: 50 });
       client.emit('chatHistory', { roomId, messages });
       return { roomId, messages };
     } catch (error) {

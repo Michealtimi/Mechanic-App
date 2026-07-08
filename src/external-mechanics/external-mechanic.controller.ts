@@ -15,7 +15,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@ne
 import { ExternalMechanicService } from './external-mechanic.service';
 import { JwtAuthGuard } from '../auth/guard/jwt.guard';
 import { RolesGuard } from '../common/guard/roles.guards';
-import { Roles } from '../common/decorators/roles.decorator';
+import { Roles } from '../common/decorators/roles.decorators';
 import { Role } from '@prisma/client';
 import { Public } from '../common/decorators/public.decorator';
 import {

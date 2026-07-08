@@ -10,9 +10,9 @@ import {
   Logger,
   RawBodyRequest, // Import RawBodyRequest for better typing
 } from '@nestjs/common';
-import { PaymentsService } from './payments.service'; // ⬅️ CORRECT: PaymentsService (plural)
+import { PaymentsService } from './payments.services';
 import { Request } from 'express'; // Import Request from express for rawBody
-import { Public } from '../../common/decorators/public.decorator';
+import { Public } from 'src/common/decorators/public.decorator';
 
 @Controller('webhooks/paystack')
 @Public() // Webhooks are public endpoints (authenticated via signature verification)
@@ -45,7 +45,7 @@ export class PaystackWebhookController {
     try {
       // 3. Delegate to PaymentsService's specific Paystack handler
       // The PaymentsService.handleWebhook is currently set up for Paystack signature verification
-      await this.paymentsService.handleWebhook(signature, req.rawBody);
+      await this.paymentsService.handlePaystackWebhook(signature, req.rawBody);
       this.logger.log('Paystack webhook processed successfully.');
       return { received: true, message: 'Webhook processed successfully' };
     } catch (error: any) {

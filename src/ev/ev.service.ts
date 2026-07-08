@@ -1,7 +1,7 @@
 /* eslint-disable prettier/prettier */
 import { Injectable, Logger, InternalServerErrorException, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
-import { Role } from '@prisma/client';
+import { Prisma, Role } from '@prisma/client';
 import { UploadEvCertDto } from './dto/ev.dto';
 
 @Injectable()
@@ -15,7 +15,7 @@ export class EvCertService {
    * Allows a mechanic to submit a certificate URL for review.
    */
   async uploadCertification(dto: UploadEvCertDto, callerId: string) {
-    const op = `UploadEvC ert for mechanic ${dto.mechanicId}`;
+    const op = `UploadEvCert for mechanic ${dto.mechanicId}`;
     this.logger.log(`Starting ${op}`);
 
     try {
@@ -71,7 +71,7 @@ export class EvCertService {
       }
 
       // Use Transaction for atomic update of Certification and User Profile
-      const updatedCert = await this.prisma.$transaction(async (tx: TransactionClient) => {
+      const updatedCert = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         
         // A. Update the Certificate record
         const cert = await tx.evCertification.update({
@@ -92,10 +92,9 @@ export class EvCertService {
         if (verifiedCount > 0) { 
           await tx.user.update({
             where: { id: cert.mechanicId, role: Role.MECHANIC },
-            data: { 
+            data: {
               isEvSpecialist: true,
-              lastCertificationVerifiedAt: new Date(), 
-            }
+            },
           });
         }
         

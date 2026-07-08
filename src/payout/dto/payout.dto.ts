@@ -3,16 +3,15 @@
 import {
   IsString,
   IsNotEmpty,
-  IsNumberString, // For BigInt or large numbers from client
+  IsNumberString,
   MinLength,
   MaxLength,
-  IsPositive,
   IsEnum,
   IsOptional,
   Min,
 } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Expose, Transform, Type } from 'class-transformer';
 import { PayoutStatus } from '@prisma/client'; // Import PayoutStatus enum
 
 // ---------------------------------------------------------------------
@@ -103,13 +102,51 @@ export class UpdatePayoutStatusDto {
   @IsString()
   failureReason?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'Optional raw response from the payment gateway.',
     type: 'object',
-    required: false,
+    additionalProperties: true,
   })
   @IsOptional()
-  rawGatewayResponse?: any; // Consider a more specific type if schema is known
+  rawGatewayResponse?: unknown;
+}
+
+/** API response shape for payout resources */
+export class PayoutResponseDto {
+  @Expose()
+  @ApiProperty()
+  id: string;
+
+  @Expose()
+  @ApiProperty()
+  mechanicId: string;
+
+  @Expose()
+  @ApiProperty({ description: 'Payout amount (decimal string)' })
+  @Transform(({ value }) =>
+    value != null && typeof value === 'object' && 'toString' in value ? (value as { toString: () => string }).toString() : String(value),
+  )
+  amount: string;
+
+  @Expose()
+  @ApiProperty({ enum: PayoutStatus })
+  status: PayoutStatus;
+
+  @Expose()
+  @ApiProperty()
+  createdAt: Date;
+
+  @Expose()
+  @ApiProperty()
+  updatedAt: Date;
+
+  @Expose()
+  @ApiPropertyOptional()
+  transactionId?: string | null;
+
+  @Expose()
+  @ApiPropertyOptional()
+  failureReason?: string | null;
 }
 
 // ---------------------------------------------------------------------

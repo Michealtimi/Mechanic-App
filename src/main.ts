@@ -58,17 +58,20 @@ async function bootstrap() {
   // Invisible Foreman: serve generated receipt images at /receipts
   app.use('/receipts', (require('express') as typeof import('express')).static(path.join(process.cwd(), 'uploads', 'receipts')));
 
-  // Swagger config n 
-  const config = new DocumentBuilder()
-    .setTitle('Mechu/R Xanic Booking API')
-    .setDescription('API for mechanic service and booking system')
-    .setVersion('1.0')
-    .addBearerAuth() // if using JWT Auth
-    .build();
+  const swaggerEnabled =
+    process.env.SWAGGER_ENABLED === 'true' ||
+    (process.env.NODE_ENV !== 'production' && process.env.SWAGGER_ENABLED !== 'false');
 
-  // OpenAPI/Swagger: UI at /api, JSON spec at /api-json (use for contract-first / client generation)
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document);
+  if (swaggerEnabled) {
+    const config = new DocumentBuilder()
+      .setTitle('Mechu/R Xanic Booking API')
+      .setDescription('API for mechanic service and booking system')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api', app, document);
+  }
 
   // Listen on environment port or default to 3000
   await app.listen(process.env.PORT ?? 3000);

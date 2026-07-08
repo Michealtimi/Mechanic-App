@@ -10,9 +10,9 @@ import {
   Logger,
   RawBodyRequest, // Import RawBodyRequest for better typing
 } from '@nestjs/common';
-import { PaymentsService } from './payments.service'; // ⬅️ CORRECT: PaymentsService (plural)
+import { PaymentsService } from './payments.services';
 import { Request } from 'express'; // Import Request from express for rawBody
-import { Public } from '../../common/decorators/public.decorator';
+import { Public } from 'src/common/decorators/public.decorator';
 
 @Controller('webhooks/flutterwave')
 @Public() // Webhooks are public endpoints (authenticated via signature verification)
@@ -43,7 +43,7 @@ export class FlutterwaveWebhookController {
     }
 
     try {
-      // 3. Delegate to PaymentsService's specific Flutterwave handler
+      // Reuse centralized webhook handler path.
       await this.paymentsService.handleFlutterwaveWebhook(signature, req.rawBody);
       this.logger.log('Flutterwave webhook processed successfully.');
       return { received: true, message: 'Webhook processed successfully' };

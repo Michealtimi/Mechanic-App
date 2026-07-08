@@ -1,12 +1,11 @@
 /* eslint-disable prettier/prettier */
-import { Injectable, Logger, InternalServerErrorException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, Inject } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
-import { GoogleMapsService, Location } from '../api/google-maps.service';
+import { Location, IMapsService, MAPS_SERVICE_TOKEN } from 'src/common/interfaces/maps-service.interface';
 import { NotificationGateway } from 'src/notification/notification.gateway';
 import { MetricsService } from 'src/metrics/metrics.service';
-import { SlaStatus } from '@prisma/client';
+import { SlaStatus, Prisma } from '@prisma/client';
 import { SlaDashboardDto, SlaAnalyticsDto, SlaPenaltyDto } from './dto/sla.dto';
-import { Decimal } from 'decimal.js';
 
 @Injectable()
 export class SlaService {
@@ -15,7 +14,7 @@ export class SlaService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly maps: GoogleMapsService,
+    @Inject(MAPS_SERVICE_TOKEN) private readonly maps: IMapsService,
     private readonly notification: NotificationGateway,
     private readonly metrics: MetricsService,
   ) {}
@@ -25,7 +24,7 @@ export class SlaService {
    * Creates the baseline record when a booking is created.
    */
   async createOrPatchSlaRecord(bookingId: string, data: { status?: SlaStatus }) {
-    return this.prisma.sLARecord.upsert({
+    return this.prisma.slaRecord.upsert({
       where: { bookingId },
       update: { status: data.status },
       create: { 
@@ -39,7 +38,7 @@ export class SlaService {
    * Get SLA record by booking ID
    */
   async getSla(bookingId: string) {
-    return this.prisma.sLARecord.findUnique({
+    return this.prisma.slaRecord.findUnique({
       where: { bookingId },
       include: { booking: true },
     });
@@ -47,34 +46,32 @@ export class SlaService {
 
   /**
    * 2. COMPUTE ETA & SET DEADLINE
-   * Called when mechanic accepts. Sets the "expectedArrivalAt" timestamp.
+   * Called when mechanic accepts. Sets the "expectedArrivalMs" field.
    */
   async computeSlaEta(bookingId: string, origin: Location, destination: Location) {
     try {
       const { durationSeconds } = await this.maps.getDistanceAndDuration(origin, destination);
       
       // Add a 20% buffer for traffic/parking
-      const bufferedDuration = durationSeconds * (1 + this.BUFFER_PERCENTAGE);
-      const expectedArrivalAt = new Date(Date.now() + bufferedDuration * 1000);
+      const bufferedDurationMs = Math.round(durationSeconds * (1 + this.BUFFER_PERCENTAGE) * 1000);
 
-      const sla = await this.prisma.sLARecord.update({
+      const sla = await this.prisma.slaRecord.update({
         where: { bookingId },
         data: {
-          expectedDuration: Math.round(bufferedDuration),
-          expectedArrivalAt,
-          status: 'IN_TRANSIT',
+          expectedArrivalMs: bufferedDurationMs,
+          status: 'PENDING',
         },
       });
 
-      this.logger.log(`SLA set for Booking ${bookingId}. Expected at: ${expectedArrivalAt.toISOString()}`);
+      this.logger.log(`SLA set for Booking ${bookingId}. Duration: ${bufferedDurationMs}ms`);
       return sla;
     } catch (error) {
       this.logger.error(`SLA ETA calculation failed for ${bookingId}`, error.stack);
       // Fallback: Set a default 60-minute SLA if Maps fails
-      return this.prisma.sLARecord.update({
+      return this.prisma.slaRecord.update({
         where: { bookingId },
         data: { 
-          expectedArrivalMs: 3600000, // 60 minutes in milliseconds
+          expectedArrivalMs: 3600000, // 60 minutes
           status: 'PENDING'
         }
       });
@@ -83,22 +80,16 @@ export class SlaService {
 
   /**
    * 3. CHECK FOR BREACHES
-   * This would be called by a Cron Job or a background worker every minute.
+   * Designed to be called by a Cron Job.
    */
   async checkAndAlertBreaches() {
-    const pendingSlas = await this.prisma.sLARecord.findMany({
-      where: {
-        status: 'PENDING',
-      },
+    const pendingSlas = await this.prisma.slaRecord.findMany({
+      where: { status: 'PENDING' },
       include: { 
         booking: { 
           include: { 
             customer: true, 
-            segments: {
-              include: {
-                mechanic: true,
-              },
-            },
+            segments: { include: { mechanic: true } },
           } 
         } 
       },
@@ -111,10 +102,9 @@ export class SlaService {
       const expectedArrivalTime = new Date(sla.createdAt).getTime() + sla.expectedArrivalMs;
       const isBreached = now > expectedArrivalTime;
 
-      if (isBreached && sla.status === 'PENDING') {
+      if (isBreached) {
         await this.prisma.$transaction(async (tx) => {
-          // Mark as breached
-          await tx.sLARecord.update({
+          await tx.slaRecord.update({
             where: { id: sla.id },
             data: { 
               status: 'BREACHED',
@@ -122,17 +112,14 @@ export class SlaService {
             },
           });
 
-          // 🚨 ALERT: Notify Customer and Support
-          const mechanic = sla.booking.segments[0]?.mechanic;
-          if (mechanic) {
-            await this.notification.emitSlaBreach(sla.booking.customerId, {
-              message: `Your mechanic is running late. We are tracking their progress.`,
-              bookingId: sla.bookingId,
-            });
-          }
+          // Notify Customer
+          await this.notification.emitSlaBreach(sla.booking.customerId, {
+            message: `Your mechanic is running late. We are tracking their progress.`,
+            bookingId: sla.bookingId,
+          });
 
           this.metrics.increment('sla_breaches_total');
-          this.logger.warn(`SLA BREACH: Booking ${sla.bookingId} exceeded expected arrival time`);
+          this.logger.warn(`SLA BREACH: Booking ${sla.bookingId}`);
         });
       }
     }
@@ -142,19 +129,12 @@ export class SlaService {
    * Mark SLA as MET when mechanic arrives on time
    */
   async markSlaMet(bookingId: string) {
-    const sla = await this.prisma.sLARecord.findUnique({
-      where: { bookingId },
-    });
+    const sla = await this.prisma.slaRecord.findUnique({ where: { bookingId } });
 
-    if (!sla) {
-      throw new BadRequestException('SLA record not found');
-    }
+    if (!sla) throw new BadRequestException('SLA record not found');
+    if (sla.status === 'BREACHED') throw new BadRequestException('SLA already breached');
 
-    if (sla.status === 'BREACHED') {
-      throw new BadRequestException('SLA already breached');
-    }
-
-    return this.prisma.sLARecord.update({
+    return this.prisma.slaRecord.update({
       where: { bookingId },
       data: { status: 'MET' },
     });
@@ -164,16 +144,12 @@ export class SlaService {
    * Apply penalty for SLA breach
    */
   async applyPenalty(bookingId: string, penaltyAmount: number, reason: string): Promise<SlaPenaltyDto> {
-    const sla = await this.prisma.sLARecord.findUnique({
+    const sla = await this.prisma.slaRecord.findUnique({
       where: { bookingId },
       include: {
         booking: {
           include: {
-            segments: {
-              include: {
-                mechanic: true,
-              },
-            },
+            segments: { include: { mechanic: true } },
           },
         },
       },
@@ -184,13 +160,9 @@ export class SlaService {
     }
 
     const mechanic = sla.booking.segments[0]?.mechanic;
-    if (!mechanic) {
-      throw new BadRequestException('No mechanic assigned to booking');
-    }
+    if (!mechanic) throw new BadRequestException('No mechanic assigned');
 
-    // Apply penalty to mechanic's wallet (deduct from earnings)
-    // This would integrate with wallet service
-    this.logger.warn(`Applying SLA penalty of ${penaltyAmount} to mechanic ${mechanic.id} for booking ${bookingId}`);
+    this.logger.warn(`Applying penalty of ${penaltyAmount} to mechanic ${mechanic.id}`);
 
     return {
       amount: penaltyAmount,
@@ -203,12 +175,12 @@ export class SlaService {
    * Get SLA dashboard statistics
    */
   async getDashboardStats(tenantId?: string): Promise<SlaDashboardDto> {
-    const where: any = {};
+    const where: Prisma.SlaRecordWhereInput = {};
     if (tenantId) {
-      where.booking = { tenantId };
+      where.booking = { orgId: tenantId };
     }
 
-    const slas = await this.prisma.sLARecord.findMany({
+    const slas = await this.prisma.slaRecord.findMany({
       where,
       include: { booking: true },
     });
@@ -220,19 +192,17 @@ export class SlaService {
 
     const complianceRate = total > 0 ? (met / total) * 100 : 0;
 
-    // Calculate average breach time
     const breachedSlas = slas.filter((s) => s.status === 'BREACHED' && s.expectedArrivalMs);
     let averageBreachTime = 0;
     if (breachedSlas.length > 0) {
       const totalBreachTime = breachedSlas.reduce((sum, s) => {
         const expectedTime = new Date(s.createdAt).getTime() + (s.expectedArrivalMs || 0);
         const actualTime = s.updatedAt.getTime();
-        return sum + (actualTime - expectedTime) / (1000 * 60); // Convert to minutes
+        return sum + (actualTime - expectedTime) / (1000 * 60);
       }, 0);
       averageBreachTime = totalBreachTime / breachedSlas.length;
     }
 
-    // Breaches by reason
     const breachesByReason = breachedSlas.reduce((acc, s) => {
       const reason = s.breachReason || 'Unknown';
       acc[reason] = (acc[reason] || 0) + 1;
@@ -254,31 +224,27 @@ export class SlaService {
    * Get SLA analytics
    */
   async getAnalytics(startDate?: Date, endDate?: Date, tenantId?: string): Promise<SlaAnalyticsDto> {
-    const where: any = {};
-    if (tenantId) {
-      where.booking = { tenantId };
-    }
+    const where: Prisma.SlaRecordWhereInput = {};
+    if (tenantId) where.booking = { orgId: tenantId };
+    
     if (startDate || endDate) {
       where.createdAt = {};
       if (startDate) where.createdAt.gte = startDate;
       if (endDate) where.createdAt.lte = endDate;
     }
 
-    const slas = await this.prisma.sLARecord.findMany({
+    const slas = await this.prisma.slaRecord.findMany({
       where,
       include: { booking: true },
     });
 
-    // By status
     const byStatus = slas.reduce((acc, s) => {
       acc[s.status] = (acc[s.status] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
-    // Compliance by period
     const complianceByPeriod = this.groupComplianceByPeriod(slas);
 
-    // Average response time
     const slasWithTime = slas.filter((s) => s.expectedArrivalMs);
     const averageResponseTime =
       slasWithTime.length > 0
@@ -304,12 +270,10 @@ export class SlaService {
     const periodMap = new Map<string, { met: number; total: number }>();
 
     slas.forEach((sla) => {
-      const period = sla.createdAt.toISOString().substring(0, 7); // YYYY-MM
+      const period = sla.createdAt.toISOString().substring(0, 7);
       const current = periodMap.get(period) || { met: 0, total: 0 };
       current.total++;
-      if (sla.status === 'MET') {
-        current.met++;
-      }
+      if (sla.status === 'MET') current.met++;
       periodMap.set(period, current);
     });
 
@@ -322,18 +286,14 @@ export class SlaService {
 
   /**
    * 4. COMPLETE SLA
-   * Finalizes the record when booking is completed.
    */
   async completeSla(bookingId: string) {
-    const sla = await this.prisma.sLARecord.findUnique({ where: { bookingId } });
+    const sla = await this.prisma.slaRecord.findUnique({ where: { bookingId } });
     
-    if (!sla) {
-      throw new BadRequestException('SLA record not found');
-    }
+    if (!sla) throw new BadRequestException('SLA record not found');
 
-    // If still pending and not breached, mark as MET
     if (sla.status === 'PENDING') {
-      return this.prisma.sLARecord.update({
+      return this.prisma.slaRecord.update({
         where: { bookingId },
         data: { status: 'MET' },
       });

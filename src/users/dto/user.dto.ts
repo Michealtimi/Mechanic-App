@@ -5,9 +5,8 @@ import { Role, Status, OrgRole } from '@prisma/client';
 import { IsOptional, IsEnum, IsInt, Min, Max, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
 
-// Re-exports from existing DTOs
-export { CreateUserDto, SignupMechanicDto } from './createmechanic.dto';
-export { UpdateUserDto } from './create-user.dto';
+export { CreateUserDto, UpdateUserDto, SignupCustomerDto } from './create-user.dto';
+export { SignupMechanicDto } from './createmechanic.dto';
 
 /** User response for auth and profile (exclude password) */
 export class UserResponseDto {
@@ -120,24 +119,8 @@ export class UserResponseDto {
   skills?: { id: string; name: string }[];
 }
 
-/** Mechanic-specific response (extends user fields) */
-export class MechanicResponseDto extends UserResponseDto {
-  @Expose()
-  @ApiPropertyOptional()
-  shopName?: string | null;
-
-  @Expose()
-  @ApiPropertyOptional()
-  isEvSpecialist?: boolean;
-
-  @Expose()
-  @ApiPropertyOptional()
-  serviceRadiusKm?: number;
-
-  @Expose()
-  @ApiPropertyOptional()
-  experienceYears?: number | null;
-}
+/** Mechanic-specific response (same shape as user; kept for API clarity) */
+export class MechanicResponseDto extends UserResponseDto {}
 
 /** Query filter for listing users */
 export class UserFilterDto {

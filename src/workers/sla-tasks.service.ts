@@ -1,7 +1,7 @@
 /* eslint-disable prettier/prettier */
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { SlaService } from './sla.service';
+import { SlaService } from '../sla/sla.service';
 
 @Injectable()
 export class SlaTasksService {

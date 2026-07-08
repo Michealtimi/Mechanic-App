@@ -43,7 +43,11 @@ export class RevenueReportDto {
   @ApiProperty({ description: 'External mechanics count' })
   externalMechanicsCount: number;
 
-  @ApiProperty({ description: 'Revenue by mechanic', type: 'object' })
+  @ApiProperty({ 
+  description: 'Revenue by mechanic', 
+  type: 'object', 
+  additionalProperties: true // This tells Swagger: "It's an object with any keys"
+})
   revenueByMechanic: Record<string, {
     mechanicId: string;
     mechanicName: string;

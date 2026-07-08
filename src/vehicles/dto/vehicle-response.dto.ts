@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { VehicleType, VehicleStatus } from '@prisma/client';
 import { Exclude, Expose } from 'class-transformer';
 

@@ -47,6 +47,10 @@ export class AiTriageService {
         throw new InternalServerErrorException('Dispute not found');
       }
 
+      if (!dispute.booking) {
+        throw new InternalServerErrorException('Dispute has no linked booking');
+      }
+
       // Get booking amount
       const bookingAmount = dispute.booking.segments.reduce(
         (sum, segment) => {

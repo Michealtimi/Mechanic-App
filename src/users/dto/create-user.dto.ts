@@ -1,6 +1,79 @@
 // src/users/dto/create-user.dto.ts
-import { IsString, IsOptional, IsInt, IsBoolean, IsNumber, Min, Max, IsUrl, IsEmail, MinLength, IsEnum } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsInt,
+  IsBoolean,
+  IsNumber,
+  Min,
+  Max,
+  IsUrl,
+  IsEmail,
+  MinLength,
+  IsEnum,
+  IsNotEmpty,
+  IsArray,
+} from 'class-validator';
 import { Role, Status, MechanicOnlineStatus } from '@prisma/client';
+
+export class CreateUserDto {
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(6)
+  password: string;
+
+  @IsEnum(Role)
+  @IsNotEmpty()
+  role: Role;
+
+  @IsOptional()
+  @IsString()
+  firstName?: string;
+
+  @IsOptional()
+  @IsString()
+  lastName?: string;
+
+  @IsOptional()
+  @IsString()
+  phoneNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  pushToken?: string;
+}
+
+export class SignupCustomerDto {
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(6)
+  password: string;
+
+  @IsOptional()
+  @IsString()
+  firstName?: string;
+
+  @IsOptional()
+  @IsString()
+  lastName?: string;
+
+  @IsOptional()
+  @IsString()
+  phoneNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  pushToken?: string;
+}
+
 
 
 
@@ -49,8 +122,8 @@ export class UpdateUserDto {
   profilePictureUrl?: string; // Common profile picture URL
 
   @IsOptional()
-  @IsString({ each: true })
-  @IsUrl({ each: true })
+  @IsArray()
+  @IsUrl({}, { each: true })
   certificationUrls?: string[];
 }
 

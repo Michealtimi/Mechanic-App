@@ -1,94 +1,107 @@
 // src/modules/payment/payment.controller.ts
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Query, 
-  Body, 
-  Headers, 
+import {
+  Controller,
+  Get,
+  Post,
+  Query,
+  Body,
+  Headers,
+  Req,
   UsePipes,
   ValidationPipe,
   HttpCode,
   BadRequestException,
+  ForbiddenException,
+  RawBodyRequest,
+  UseGuards,
 } from '@nestjs/common';
-import { PaymentService } from './payment.services';
-import { Public } from '../common/decorators/public.decorator';
+import { PaymentsService } from './payments.services';
+import { Public } from 'src/common/decorators/public.decorator';
+import { Request } from 'express';
+import { JwtAuthGuard } from 'src/auth/guard/jwt.guard';
+import { InitiatePaymentDto } from './dto/initiate-payment.dto';
+import { JwtUserPayload } from 'src/config/jwt.config';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Payments')
+@ApiBearerAuth()
 @Controller('payments')
+@UseGuards(JwtAuthGuard)
 @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
 export class PaymentController {
-  
-  private readonly RAW_BODY_KEY = 'rawBody'; // Key used to pass raw body for signature check
+  constructor(private readonly paymentService: PaymentsService) {}
 
-  constructor(private readonly paymentService: PaymentService) {}
-
-  // =================================================================
-  // 1. Initiate Payment Endpoint (Example)
-  // POST /payments/initiate
-  // =================================================================
-  // NOTE: Assuming DTOs are passed in the request body for simplicity.
   @Post('initiate')
-  async initiatePayment() {
-    // ⚠️ Replace with DTO and Auth guard logic
-    const bookingId = 'mock-b-123'; 
-    const userId = 'mock-u-456'; 
+  async initiatePayment(
+    @Req() req: { user: JwtUserPayload },
+    @Body() body: InitiatePaymentDto,
+  ) {
+    await this.paymentService.assertCanInitiatePayment(
+      req.user.id,
+      req.user.role,
+      body.bookingId,
+    );
 
-    const result = await this.paymentService.initializePayment(bookingId, userId);
+    const result = await this.paymentService.initialize({
+      bookingId: body.bookingId,
+      amount: BigInt(body.amount),
+      gateway: body.gateway,
+      countryCode: body.countryCode,
+      currency: body.currency,
+      metadata: (body.metadata as Record<string, any>) || {},
+      bookingSegmentId: body.bookingSegmentId,
+      mechanicSubaccount: body.mechanicSubaccount,
+    });
     return {
       message: 'Payment initialized. Redirect user to the authorizationUrl.',
       ...result,
     };
   }
 
-  // =================================================================
-  // 2. Verify Payment Endpoint (The missing endpoint) 🎯
-  // GET /payments/verify?reference={tx_ref}
-  // =================================================================
-  /**
-   * Called by the frontend after the user is redirected back from the payment gateway.
-   * This is a client-side verification, which is less reliable than webhooks.
-   */
   @Get('verify')
-  async verifyPayment(@Query('reference') reference: string) {
+  async verifyPayment(
+    @Req() req: { user: JwtUserPayload },
+    @Query('reference') reference: string,
+    @Query('gateway') gateway?: string,
+  ) {
     if (!reference) {
-        throw new BadRequestException('Transaction reference is required for verification.');
+      throw new BadRequestException('Transaction reference is required for verification.');
     }
-    
-    // Delegate to the service's robust verification logic
-    const verificationResult = await this.paymentService.verifyPayment(reference);
+    await this.paymentService.assertCanVerifyPayment(req.user.id, req.user.role, reference);
+    const gw = (gateway || 'PAYSTACK').toUpperCase();
+    const verificationResult = await this.paymentService.verifyPayment(reference, gw);
 
     return {
       message: 'Payment status retrieved.',
       status: verificationResult.status,
-      amount: verificationResult.amount, // in kobo/cents
+      amount: verificationResult.amount?.toString?.() ?? verificationResult.amount,
     };
   }
 
-  // =================================================================
-  // 3. Webhook Handler Endpoint (CRITICAL SECURITY POINT) 🔒
-  // POST /payments/webhook
-  // =================================================================
   /**
-   * Called server-to-server by the payment gateway (Paystack/Flutterwave).
-   * Note: NestJS setup requires a BodyParser configuration to get the raw body.
+   * Legacy combined webhook: prefers Paystack signature if both headers present.
+   * Prefer /webhooks/paystack and /webhooks/flutterwave in production.
    */
-  @Public() // Webhooks are public endpoints (authenticated via signature verification)
+  @Public()
   @Post('webhook')
-  @HttpCode(200) // Always return 200 OK quickly, even if processing fails
+  @HttpCode(200)
   async handleWebhook(
     @Headers('x-paystack-signature') paystackSignature: string,
-    @Headers('verif-hash') flutterwaveSignature: string, // Flutterwave's signature header
-    @Body() payload: any,
-    // Note: To get the RAW BODY for signature check, you need middleware configuration.
+    @Headers('verif-hash') flutterwaveSignature: string,
+    @Req() req: RawBodyRequest<Request>,
   ) {
-    // ⚠️ CRITICAL STEP: The service must handle authentication and processing
-    
-    const signature = paystackSignature || flutterwaveSignature; // Choose the relevant signature
-    // The service method should be adapted to accept the signature/raw body
-    
-    // For now, we assume the raw body is available, or the service only uses the payload data.
-    await this.paymentService.handleWebhook(signature, payload); 
-
-    return { received: true }; 
+    const rawBody = req.rawBody;
+    if (!rawBody) {
+      throw new ForbiddenException('Raw body not available for signature verification.');
+    }
+    if (paystackSignature) {
+      await this.paymentService.handlePaystackWebhook(paystackSignature, rawBody);
+      return { received: true };
+    }
+    if (flutterwaveSignature) {
+      await this.paymentService.handleFlutterwaveWebhook(flutterwaveSignature, rawBody);
+      return { received: true };
+    }
+    throw new ForbiddenException('Missing webhook signature header.');
   }
 }

@@ -45,9 +45,9 @@ export class UsersController {
   @Post()
   @Roles(Role.ADMIN) // Example: Only admins can create general users
   @HttpCode(HttpStatus.CREATED)
-  async createUser(@Body() createUserDto: CreateUserDto) {
-    const user = await this.usersService.createUser(createUserDto);
-    return plainToInstance(UserResponseDto, user, { excludeExtraneousValues: true });
+  async createUser(@Body() createUserDto: CreateUserDto, @Req() req) {
+    const result = await this.usersService.createUser(createUserDto, req.user.id, req.user.role);
+    return result.data;
   }
 
   // ======================
@@ -59,8 +59,8 @@ export class UsersController {
   async signupMechanic(@Body() signupMechanicDto: SignupMechanicDto) {
     // Ensure the role is explicitly set to MECHANIC to prevent role elevation
     signupMechanicDto.role = Role.MECHANIC;
-    const user = await this.usersService.signupMechanic(signupMechanicDto); // You'd have a specific service method for this
-    return plainToInstance(MechanicResponseDto, user, { excludeExtraneousValues: true }); // Return MechanicResponseDto
+    const result = await this.usersService.signupMechanic(signupMechanicDto);
+    return plainToInstance(MechanicResponseDto, result.data, { excludeExtraneousValues: true });
   }
 
   // ======================
@@ -108,7 +108,8 @@ export class UsersController {
   @Roles(Role.ADMIN, Role.CUSTOMER, Role.MECHANIC)
   async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto, @Req() req) {
     // Authorization logic in service: user can only update their own profile unless they are an admin
-    const updatedUser = await this.usersService.update(id, updateUserDto, req.user.id, req.user.role);
+    const result = await this.usersService.updateUser(id, updateUserDto, req.user.id, req.user.role);
+    const updatedUser = result.data;
     const ResponseDto = updatedUser.role === Role.MECHANIC ? MechanicResponseDto : UserResponseDto;
     return plainToInstance(ResponseDto, updatedUser, { excludeExtraneousValues: true });
   }
@@ -119,8 +120,8 @@ export class UsersController {
   @Delete(':id')
   @Roles(Role.ADMIN) // Only admins can delete users
   @HttpCode(HttpStatus.NO_CONTENT)
-  async remove(@Param('id') id: string) {
-    await this.usersService.remove(id);
+  async remove(@Param('id') id: string, @Req() req) {
+    await this.usersService.deleteUser(id, req.user.id, req.user.role);
   }
 
   // ======================

@@ -47,9 +47,10 @@ export class ReceiptImageService {
       ? [booking.mechanic.firstName, booking.mechanic.lastName].filter(Boolean).join(' ') || booking.mechanic.shopName || 'Mechanic'
       : 'Mechanic';
     const amount = booking.totalPrice?.toString() ?? '—';
+    const locale = this.configService.get<string>('DEFAULT_LOCALE') || 'en-NG';
     const date = booking.completedAt
-      ? booking.completedAt.toLocaleDateString('en-NG', { dateStyle: 'medium' })
-      : new Date().toLocaleDateString('en-NG', { dateStyle: 'medium' });
+      ? booking.completedAt.toLocaleDateString(locale, { dateStyle: 'medium' })
+      : new Date().toLocaleDateString(locale, { dateStyle: 'medium' });
 
     const svg = `
 <svg width="600" height="820" xmlns="http://www.w3.org/2000/svg">

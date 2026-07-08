@@ -13,10 +13,10 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuditService } from './audit.service';
-import { QueryAuditDto } from './dto/query-audit.dto';
+import { QueryAuditDto } from './dto/audit.dto';
 import { JwtAuthGuard } from '../auth/guard/jwt.guard';
-import { RolesGuard } from '../common/guard/roles.guards'; // Adjust path
-import { HasRoles } from '../auth/decorators/roles.decorator'; // Adjust path
+import { RolesGuard } from '../common/guard/roles.guards';
+import { Roles } from '../common/decorators/roles.decorators';
 import { Role } from '@prisma/client'; // Import Prisma Role enum
 import { Response } from 'express'; // For @Res() type hinting
 
@@ -28,7 +28,7 @@ enum ExportFormat {
 @ApiTags('Audit Logs')
 @ApiBearerAuth() // Indicates that JWT token is required
 @UseGuards(JwtAuthGuard, RolesGuard) // Apply guards at controller level
-@HasRoles(Role.ADMIN, Role.SUPERADMIN) // Only Admins and SuperAdmins can access audit logs
+@Roles(Role.ADMIN, Role.SUPERADMIN) // Only Admins and SuperAdmins can access audit logs
 @Controller('audit-logs')
 export class AuditController {
   private readonly logger = new Logger(AuditController.name);

@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BookingService } from 'src/booking/booking.service';
 import { PrismaService } from 'prisma/prisma.service';
-import { GoogleMapsService } from 'src/google-maps/google-maps.service';
+import { MAPS_SERVICE_TOKEN } from 'src/common/interfaces/maps-service.interface';
 import { SlaService } from 'src/sla/sla.service';
 import { NotificationGateway } from 'src/notification/notification.gateway';
 import { PaymentsService } from 'src/payments/payments.service';
@@ -54,7 +54,7 @@ describe('BookingService - Multi-Segment Functionality', () => {
       providers: [
         BookingService,
         { provide: PrismaService, useValue: mockPrismaService },
-        { provide: GoogleMapsService, useValue: mockGoogleMapsService },
+        { provide: MAPS_SERVICE_TOKEN, useValue: mockGoogleMapsService },
         { provide: SlaService, useValue: mockSlaService },
         { provide: NotificationGateway, useValue: mockNotificationGateway },
         { provide: PaymentsService, useValue: mockPaymentsService },

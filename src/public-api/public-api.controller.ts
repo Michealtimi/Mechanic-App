@@ -32,10 +32,10 @@ export class PublicApiController {
   @ApiOperation({ summary: 'Get available mechanics (Public API)' })
   @ApiResponse({ status: 200, description: 'Mechanics retrieved' })
   async getMechanics(
+    @Req() req,
     @Query('lat') lat?: string,
     @Query('lng') lng?: string,
     @Query('radius') radius?: string,
-    @Req() req,
   ) {
     // Public API endpoint for getting mechanics
     // Uses API key authentication instead of JWT

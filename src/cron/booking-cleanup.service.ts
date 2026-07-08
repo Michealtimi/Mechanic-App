@@ -2,7 +2,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from 'prisma/prisma.service';
 import { NotificationGateway } from 'src/notification/notification.gateway';
-import { BookingStatus, PaymentStatus } from '@prisma/client'; // Import enums for safety
+import { BookingStatus, PaymentStatus, Prisma } from '@prisma/client'; // Import enums for safety
 import { PaymentsService } from 'src/payment/payments.services';
 import { ConfigService } from '@nestjs/config'; // For configuring cutoff times
 
@@ -72,25 +72,22 @@ export class BookingCleanupService implements OnModuleInit {
             });
             this.logger.log(`Updated booking ${booking.id} to ${BookingStatus.CANCELLED}.`);
 
-            // 2. Handle associated Payment (if any)
-            if (booking.payment && booking.payment.status === PaymentStatus.PENDING) {
-              // If there's a PENDING payment, attempt to cancel it as well
-              // This might involve calling the gateway API to cancel or letting verifyPayment handle it
+            // 2. Handle associated payments (if any)
+            const pendingPayments = booking.payments.filter((p) => p.status === PaymentStatus.PENDING);
+            for (const pay of pendingPayments) {
               await tx.payment.update({
-                where: { id: booking.payment.id },
+                where: { id: pay.id },
                 data: { status: PaymentStatus.CANCELLED, updatedAt: new Date() },
               });
-              this.logger.log(`Updated associated payment ${booking.payment.id} to ${PaymentStatus.CANCELLED}.`);
-              // Note: If payment was already successful, this cancellation is just on your side.
-              // For a truly successful payment that needs refund, that's a separate process.
+              this.logger.log(`Updated associated payment ${pay.id} to ${PaymentStatus.CANCELLED}.`);
             }
 
             // 3. Notify Mechanic and Customer
             if (booking.mechanicId) {
-                await this.notificationGateway.emitBookingCancelled(booking.mechanicId, booking.id, 'Mechanic');
+              await this.notificationGateway.emitBookingCancelled(booking.mechanicId, booking.id);
             }
             if (booking.customerId) {
-                await this.notificationGateway.emitBookingCancelled(booking.customerId, booking.id, 'Customer');
+              await this.notificationGateway.emitBookingCancelled(booking.customerId, booking.id);
             }
             this.logger.log(`Notifications sent for cancelled booking ${booking.id}.`);
           });
@@ -146,34 +143,28 @@ export class BookingCleanupService implements OnModuleInit {
             // and the webhook was delayed. VerifyPayment will handle marking it SUCCESS.
             // If it's still PENDING or FAILED after verification, then proceed with cancellation.
             // THIS IS IMPORTANT: verification is the source of truth from the gateway.
-            const verificationResult = await this.paymentsService.verifyPayment(payment.reference);
+            const verified = await this.paymentsService.verifyPayment(payment.reference, payment.gateway);
 
-            if (verificationResult.status === PaymentStatus.SUCCESS || verificationResult.status === PaymentStatus.CAPTURED) {
-                this.logger.log(`Payment ${payment.id} (${payment.reference}) was actually SUCCESSFUL upon verification. No cancellation needed.`);
-                // triggerPostPaymentActions would have been called by verifyPayment, so no further action here
-                return; 
+            if (verified.status === PaymentStatus.SUCCESS || verified.status === PaymentStatus.CAPTURED) {
+              this.logger.log(
+                `Payment ${payment.id} (${payment.reference}) was actually SUCCESSFUL upon verification. No cancellation needed.`,
+              );
+              return;
             }
 
-            // If still pending or verification explicitly says FAILED/CANCELLED/ABANDONED
+            const mergedRaw = verified.rawGatewayResponse ?? payment.rawGatewayResponse;
             const updatedPayment = await tx.payment.update({
               where: { id: payment.id },
               data: {
-                status: PaymentStatus.CANCELLED, // Mark it as cancelled internally
+                status: PaymentStatus.CANCELLED,
                 updatedAt: new Date(),
-                // Store the raw verification response
-                rawGatewayResponse: verificationResult.raw || payment.rawGatewayResponse, 
+                ...(mergedRaw != null && { rawGatewayResponse: mergedRaw as Prisma.InputJsonValue }),
               },
             });
-            this.logger.log(`Updated payment ${payment.id} (${payment.reference}) to ${PaymentStatus.CANCELLED}.`);
+            this.logger.log(`Updated payment ${updatedPayment.id} (${payment.reference}) to ${PaymentStatus.CANCELLED}.`);
 
-            // Optionally: If payment was actually SUCCESSFUL but booking was cancelled later,
-            // you might need to initiate a refund here.
-            // This scenario is handled by PaymentsService.triggerPostPaymentActions if a successful payment happens for a non-pending booking.
-            // For now, if verifyPayment didn't result in SUCCESS, we just mark it cancelled.
-
-            // Notify customer if they had a pending payment cancelled
-            if (payment.userId) { // Assuming payment.userId is customerId
-                await this.notificationGateway.emitPaymentCancelled(payment.userId, payment.id);
+            if (payment.userId) {
+              await this.notificationGateway.emitPaymentCancelled(payment.userId, payment.id);
             }
 
           });

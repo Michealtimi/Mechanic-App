@@ -73,7 +73,7 @@ export class TelemetryAdapterService {
         },
         'SYSTEM', // System user for automated sync
         'SYSTEM' as any,
-        vehicle.tenantId || '',
+        vehicle.orgId || '',
       );
 
       // Update vehicle location if available

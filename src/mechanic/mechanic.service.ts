@@ -105,7 +105,6 @@ export class MechanicService {
       if (dto.firstName) updateData.firstName = dto.firstName;
       if (dto.lastName) updateData.lastName = dto.lastName;
       if (dto.shopName) updateData.shopName = dto.shopName;
-      if (dto.location) updateData.location = dto.location;
       if (dto.bio) updateData.bio = dto.bio;
       if (dto.experienceYears) updateData.experienceYears = dto.experienceYears;
 

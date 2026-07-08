@@ -62,10 +62,10 @@ export class RevenueSharingService {
       // Use stored platform fee from booking; fallback to configurable commission % (Invisible Foreman: editable)
       const storedPlatformFee = booking.platformFee != null ? new Decimal(booking.platformFee.toString()) : null;
       const commissionPercent = await this.platformConfig.getPlatformCommissionPercent();
-      const platformFee = storedPlatformFee ?? totalAmount.multipliedBy(commissionPercent).dividedBy(100);
+      const platformFee = storedPlatformFee ?? totalAmount.times(commissionPercent).div(100);
 
       // Calculate mechanic commission
-      const mechanicCommission = totalAmount.multipliedBy(commissionRate).dividedBy(100);
+      const mechanicCommission = totalAmount.times(commissionRate).div(100);
 
       return {
         bookingId,
@@ -175,6 +175,8 @@ export class RevenueSharingService {
         },
       });
 
+      const platformCommissionPercent = await this.platformConfig.getPlatformCommissionPercent();
+
       // Calculate totals
       let totalRevenue = new Decimal(0);
       let totalPlatformFees = new Decimal(0);
@@ -197,13 +199,13 @@ export class RevenueSharingService {
         totalRevenue = totalRevenue.plus(bookingTotal);
 
         const storedFee = booking.platformFee != null ? new Decimal(booking.platformFee.toString()) : null;
-        const platformFee = storedFee ?? bookingTotal.multipliedBy(this.DEFAULT_PLATFORM_FEE_PERCENT).dividedBy(100);
+        const platformFee = storedFee ?? bookingTotal.times(platformCommissionPercent).div(100);
         totalPlatformFees = totalPlatformFees.plus(platformFee);
 
         if (booking.mechanic) {
           const isExternal = booking.mechanic.isExternal || false;
           const commissionRate = booking.mechanic.commissionRate || (isExternal ? 15 : 0);
-          const commission = bookingTotal.multipliedBy(commissionRate).dividedBy(100);
+          const commission = bookingTotal.times(commissionRate).div(100);
           totalCommissions = totalCommissions.plus(commission);
 
           // Aggregate by mechanic
@@ -268,8 +270,8 @@ export class RevenueSharingService {
         status: BookingStatus.COMPLETED,
         segments: {
           some: {
-            payment: {
-              status: PaymentStatus.SUCCESS,
+            payments: {
+              some: { status: PaymentStatus.SUCCESS },
             },
           },
         },
@@ -307,7 +309,7 @@ export class RevenueSharingService {
 
         const isExternal = booking.mechanic?.isExternal || false;
         const commissionRate = booking.mechanic?.commissionRate || (isExternal ? 15 : 0);
-        const commission = bookingTotal.multipliedBy(commissionRate).dividedBy(100);
+        const commission = bookingTotal.times(commissionRate).div(100);
         totalCommission = totalCommission.plus(commission);
       }
 

@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
+import { VehicleType } from '@prisma/client';
 import { EvHealthMetricsDto, HealthAlertDto } from './dto/ev-health.dto';
 import { VehiclesService } from '../vehicles/vehicles.service';
 
@@ -33,7 +34,7 @@ export class EvHealthService {
         throw new NotFoundException('Vehicle not found');
       }
 
-      if (vehicle.type !== 'EV') {
+      if (vehicle.type !== VehicleType.EV) {
         throw new NotFoundException('Vehicle is not an EV');
       }
 
@@ -44,9 +45,9 @@ export class EvHealthService {
       const metrics = await this.prisma.eVMetric.findMany({
         where: {
           vehicleId,
-          createdAt: { gte: thirtyDaysAgo },
+          timestamp: { gte: thirtyDaysAgo },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { timestamp: 'desc' },
         take: 100,
       });
 
@@ -140,8 +141,8 @@ export class EvHealthService {
       
       if (curr > prev) {
         // Charging detected
-        const startTime = metrics[i - 1].createdAt.getTime();
-        const endTime = metrics[i].createdAt.getTime();
+               const startTime = metrics[i - 1].timestamp.getTime();
+        const endTime = metrics[i].timestamp.getTime();
         const duration = (endTime - startTime) / (1000 * 60); // minutes
         
         chargingSessions.push({
@@ -178,11 +179,9 @@ export class EvHealthService {
     const avgRange = ranges.reduce((sum, r) => sum + r, 0) / ranges.length;
     
     // Expected range for EV (simplified - should use vehicle specs)
-    const expectedRange = 300; // km (placeholder)
-    
-    if (expectedRange === 0) return 0;
-    
-    const degradation = ((expectedRange - avgRange) / expectedRange) * 100;
+    const expectedRangeKm = 300; // km (placeholder)
+
+    const degradation = ((expectedRangeKm - avgRange) / expectedRangeKm) * 100;
     return Math.max(0, Math.min(100, degradation));
   }
 

@@ -2,8 +2,14 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core'; // Import APP_GUARD for global guard
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler'; // Import Throttler
+import { ThrottlerGuard } from '@nestjs/throttler';
+import { AppThrottlerModule } from './common/throttler/throttler.module';
 import { TenantGuard } from './common/guard/tenant.guard';
+import { JwtAuthGuard } from './auth/guard/jwt.guard';
+import { CronModule } from './cron/cron.module';
+import { PayoutModule } from './payout/payout.module';
+import { SubaccountModule } from './subaccount/subAccount.module';
+import { StorageModule } from './storage/storage.module';
 
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
@@ -40,6 +46,10 @@ import { VinModule } from './vin/vin.module';
 import { PlatformConfigModule } from './config/config.module';
 import { PrismaModule } from 'prisma/prisma.module';
 import { HealthModule } from './health/health.module';
+import {
+  envValidationSchema,
+  envValidationOptions,
+} from './config/env.validation';
 
 @Module({
   imports: [
@@ -48,27 +58,12 @@ import { HealthModule } from './health/health.module';
     SharedModule,
     CacheModule,
     ConfigModule.forRoot({
-      isGlobal: true, // Make ConfigModule global
+      isGlobal: true,
+      validationSchema: envValidationSchema,
+      validationOptions: envValidationOptions,
     }),
 
-    // ThrottlerModule configuration:
-    ThrottlerModule.forRoot([
-      {
-        ttl: 60000, // Default: 60 seconds (1 minute)
-        limit: 20,  // Default: Max 20 requests per minute
-      },
-      // You can add named rules for specific scenarios if needed
-      {
-        name: 'short-burst', // Example: for bursty chat messages
-        ttl: 5000, // 5 seconds
-        limit: 5,  // 5 requests every 5 seconds
-      },
-      {
-        name: 'login-attempts', // Example: for login brute force protection
-        ttl: 60000, // 1 minute
-        limit: 5,   // Only 5 login attempts per minute per IP/user
-      }
-    ]),
+    AppThrottlerModule,
 
     ScheduleModule.forRoot(),
 
@@ -103,14 +98,20 @@ import { HealthModule } from './health/health.module';
     AppEcosystemModule,
     VinModule,
     PlatformConfigModule,
+    CronModule,
+    PayoutModule,
+    SubaccountModule,
+    StorageModule,
   ],
   providers: [
-    // Apply ThrottlerGuard globally to all HTTP endpoints
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
     },
-    // Apply TenantGuard globally to enforce multi-tenancy isolation
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
     {
       provide: APP_GUARD,
       useClass: TenantGuard,

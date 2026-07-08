@@ -10,31 +10,35 @@ import { RolesGuard } from 'src/common/guard/roles.guards';
 import { JwtStrategy } from './guard/jwt.strategy';
 import { PrismaService } from 'prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
+import { getJwtAccessSecret } from 'src/config/jwt.config';
+import { GoogleTokenService } from './google-token.service';
 
 @Module({
   imports: [
     PassportModule,
     JwtModule.registerAsync({
-      // No need to import ConfigModule here as it's global
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET'),
-        signOptions: { expiresIn: '1d' }, // Example expiration
+      useFactory: (configService: ConfigService) => ({
+        secret: getJwtAccessSecret(configService),
+        signOptions: {
+          expiresIn: (configService.get<string>('JWT_ACCESS_EXPIRES') || '15m') as `${number}${'s' | 'm' | 'h' | 'd'}`,
+        },
       }),
       inject: [ConfigService],
       global: true,
     }),
   ],
-  
+
   controllers: [AuthController],
   providers: [
     AuthService,
+    GoogleTokenService,
     PrismaService,
     JwtStrategy,
     {
       provide: APP_GUARD,
-      useClass: RolesGuard, // 👈 global role guard
+      useClass: RolesGuard,
     },
   ],
-  exports: [AuthService],
+  exports: [AuthService, GoogleTokenService],
 })
 export class AuthModule {}

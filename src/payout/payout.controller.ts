@@ -12,19 +12,21 @@ import {
   HttpStatus,
   UseGuards,
   Req,
+  NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
-import { PayoutService } from './payout.service';
+import { PayoutService } from './payouts.service';
 import {
   RequestPayoutDto,
   UpdatePayoutStatusDto,
   ListPayoutsDto,
   PayoutResponseDto,
-} from './dtos/payout.dtos';
+} from './dto/payout.dto';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiParam, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/guard/jwt.guard'; // Assuming you have an auth guard
 import { RolesGuard } from 'src/common/guard/roles.guards'; // Assuming a roles guard
 import { Roles } from 'src/common/decorators/roles.decorators'; // Assuming roles decorator
-import { Role } from '@prisma/client'; // Assuming Role enum
+import { Role, PayoutStatus } from '@prisma/client'; // Assuming Role enum
 import { plainToInstance } from 'class-transformer'; // For transforming service response to DTO
 import { UserRequest } from 'src/common/interfaces/user-request.interface'; // Assuming this interface exists for @Req() user
 
@@ -127,7 +129,7 @@ export class PayoutController {
 
     // Authorization check: Mechanics can only view their own payouts
     if (req.user.role === Role.MECHANIC && payout.mechanicId !== req.user.id) {
-        throw new HttpStatus(HttpStatus.FORBIDDEN, 'You are not authorized to view this payout.');
+        throw new ForbiddenException('You are not authorized to view this payout.');
     }
 
     return plainToInstance(PayoutResponseDto, payout, { excludeExtraneousValues: true });

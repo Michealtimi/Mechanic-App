@@ -12,7 +12,7 @@ Copy from `.env.example` and set values. Required:
 - **Auth:** `JWT_SECRET`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` (and expires)
 - **Redis:** `REDIS_HOST`, `REDIS_PORT` (for BullMQ + Socket.IO adapter)
 - **Payment:** `PAYSTACK_SECRET_KEY` and/or `FLW_SECRET_KEY`, webhook secrets; `PAYMENT_GATEWAY` (SANDBOX | PAYSTACK | FLUTTERWAVE)
-- **Maps:** `GOOGLE_MAPS_API_KEY` (geocoding, distance, SLA)
+- **Maps:** OpenStreetMap/Nominatim-based provider (`src/api/maps.service.ts`)
 - **Encryption:** `ENCRYPTION_KEY` (64 hex chars, for webhook secrets etc.)
 - **Platform config (Invisible Foreman):** see [Platform config](#2-platform-config) below.
 - **Receipts:** `APP_URL` (e.g. `https://api.yourapp.com`) — used for receipt image URLs and static `/receipts` base.

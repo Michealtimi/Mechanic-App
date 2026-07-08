@@ -7,7 +7,11 @@ import {
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
-import { GoogleMapsService } from '../api/google-maps.service';
+import { Inject } from '@nestjs/common';
+import {
+  IMapsService,
+  MAPS_SERVICE_TOKEN,
+} from 'src/common/interfaces/maps-service.interface';
 import { FindChargingStationsDto, ChargingStationDto } from './dto/charging-station.dto';
 
 @Injectable()
@@ -17,7 +21,7 @@ export class ChargingStationService {
   constructor(
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
-    private readonly googleMaps: GoogleMapsService,
+    @Inject(MAPS_SERVICE_TOKEN) private readonly maps: IMapsService,
   ) {}
 
   /**
@@ -100,7 +104,21 @@ export class ChargingStationService {
     this.logger.log(`[${operation}]`);
 
     try {
-      return await this.googleMaps.getRoute(
+      if (!this.maps.getRoute) {
+        // Fallback: distance + duration only
+        const { distanceMeters, durationSeconds } = await this.maps.getDistanceAndDuration(
+          { lat: fromLat, lng: fromLng },
+          { lat: stationLat, lng: stationLng },
+        );
+        return {
+          distanceMeters,
+          durationSeconds,
+          polyline: null,
+          steps: [],
+        };
+      }
+
+      return await this.maps.getRoute(
         { lat: fromLat, lng: fromLng },
         { lat: stationLat, lng: stationLng },
       );

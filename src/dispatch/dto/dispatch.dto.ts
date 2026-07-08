@@ -35,8 +35,6 @@ export class CreateDispatchDto {
   @IsISO8601()
   expiresAt?: string;
 
-  ---
-
   // === LOCATION DATA (Required for automatic dispatch) ===
   // Note: These fields should ideally be fetched from the associated Booking 
   // if the Booking object contains them. If this DTO is used to *override*

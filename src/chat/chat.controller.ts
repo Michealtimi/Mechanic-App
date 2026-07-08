@@ -15,7 +15,6 @@ import { ApiBearerAuth, ApiTags, ApiResponse, ApiOperation, ApiParam } from '@ne
 import { AuthGuard } from '@nestjs/passport'; // For JWT authentication
 import { Request } from 'express'; // To access req.user
 import { ChatService } from './chat.service';
-import { ChatRoom, ChatMessage } from '@prisma/client'; // Import Prisma types
 
 // Define an interface to augment the Express Request object with user data
 // This assumes your JWT strategy attaches a 'user' object with an 'id' property.
@@ -41,12 +40,12 @@ export class ChatController {
    */
   @Get('rooms')
   @ApiOperation({ summary: 'Get all chat rooms for the authenticated user' })
-  @ApiResponse({ status: 200, description: 'Successfully retrieved user chat rooms.', type: [ChatRoom] })
+  @ApiResponse({ status: 200, description: 'Successfully retrieved user chat rooms.' })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
   @ApiResponse({ status: 500, description: 'Internal server error.' })
   async getUserChatRooms(
     @Req() req: AuthenticatedRequest,
-  ): Promise<ChatRoom[]> {
+  ): Promise<any[]> {
     const userId = req.user.id; // Safely get the authenticated user's ID
     this.logger.verbose(`Fetching chat rooms for user: ${userId}`);
     try {
@@ -71,14 +70,14 @@ export class ChatController {
   @Get(':roomId/messages')
   @ApiOperation({ summary: 'Get messages for a specific chat room' })
   @ApiParam({ name: 'roomId', description: 'ID of the chat room', type: String })
-  @ApiResponse({ status: 200, description: 'Successfully retrieved chat messages.', type: [ChatMessage] })
+  @ApiResponse({ status: 200, description: 'Successfully retrieved chat messages.' })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
   @ApiResponse({ status: 404, description: 'Chat room not found.' })
   @ApiResponse({ status: 500, description: 'Internal server error.' })
   async getMessages(
     @Param('roomId') roomId: string,
     @Req() req: AuthenticatedRequest,
-  ): Promise<ChatMessage[]> {
+  ): Promise<any[]> {
     const userId = req.user.id; // Safely get the authenticated user's ID
     this.logger.verbose(`Fetching messages for room ${roomId} by user: ${userId}`);
 
@@ -96,7 +95,7 @@ export class ChatController {
 
     // 2. Retrieve messages from the service
     try {
-      return await this.chatService.getMessages(roomId);
+      return await this.chatService.getMessages(roomId, { skip: 0, take: 50 });
     } catch (error) {
       this.logger.error(`Error fetching messages for room ${roomId} by user ${userId}: ${error.message}`, error.stack);
       // ChatService should throw more specific exceptions, but if it throws generic, handle here

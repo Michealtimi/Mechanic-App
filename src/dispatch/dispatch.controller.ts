@@ -9,6 +9,7 @@ import { IsOptional, IsString } from 'class-validator';
 import { CreateDispatchDto } from './dto/dispatch.dto';
 import { DispatchAnalyticsDto, MechanicAvailabilityDto } from './dto/dispatch-analytics.dto';
 import { Role } from '@prisma/client';
+import { UserRequest } from 'src/common/interfaces/user-request.interface';
 /**
  * DTO for Dispatch Rejection
  */
@@ -49,7 +50,7 @@ export class DispatchController {
   @Post()
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Assign a mechanic to a booking (auto-match or specific manual assignment)' })
-  async create(@Req() req: User, @Body() dto: CreateDispatchDto) {
+  async create(@Req() req: UserRequest, @Body() dto: CreateDispatchDto) {
     // req.user.id is the ID of the entity initiating the dispatch (e.g., an Admin or the system itself)
     const user= req.user.id; 
     return this.dispatchService.createDispatch(dto, user);

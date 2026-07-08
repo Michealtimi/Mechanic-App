@@ -60,9 +60,14 @@ export class SandboxGateway implements IPaymentGateway {
     };
   }
 
-  async initiateTransfer(): Promise<{ success: boolean; message?: string; raw?: any }> {
-    this.logger.log('[SANDBOX] Mock initiateTransfer');
-    return { success: true, message: 'Mock transfer' };
+  async initiateTransfer(request: import('../interface/payment-gateway.interface').TransferRequest): Promise<import('../interface/payment-gateway.interface').TransferResponse> {
+    this.logger.log(`[SANDBOX] Mock transfer ${request.internalReference} → ${request.recipientName}`);
+    return {
+      success: true,
+      providerRef: `SANDBOX_TRF_${Date.now()}`,
+      message: 'Mock transfer succeeded',
+      raw: request,
+    };
   }
 
   async refund(reference: string, amount?: number): Promise<RefundResult> {

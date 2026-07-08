@@ -7,12 +7,12 @@ import {
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 
-// You can remove the MailData interface since it's not used.
+type NodemailerTransport = ReturnType<typeof nodemailer.createTransport>;
 
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
-  private transporter: nodemailer.Transporter;
+  private transporter: NodemailerTransport;
 
   constructor(private readonly config: ConfigService) {
     // ... (Your existing transporter setup, it's good as is)
@@ -30,7 +30,7 @@ export class MailService {
    */
   async sendWelcomeEmail(
     to: string,
-    data: { name: string; role: string; password?: string; shopName?: string },
+    data: { name: string; role: string; password?: string; shopName?: string | null },
   ) {
     const { name, role, password, shopName } = data;
     const subject = `Welcome to the Mechanic App, ${name}!`;

@@ -153,13 +153,34 @@ export class NotificationGateway implements OnGatewayConnection, OnGatewayDiscon
     }
 
     // Corresponds to: async emitBookingCancelled(userId: string, bookingId: string) { ... }
-    async emitBookingCancelled(userId: string, bookingId: string) {
-        const payload = { bookingId, status: 'cancelled', message: 'Your booking has been cancelled.' };
-        this.emitToUser(userId, 'booking.cancelled', payload);
-        
-        // Optional: Notify Admin
-        this.emitToAdmin('admin.bookingCancelled', payload);
-    }
+    async emitBookingCancelled(userId: string, bookingId: string) {
+        const payload = { bookingId, status: 'cancelled', message: 'Your booking has been cancelled.' };
+        this.emitToUser(userId, 'booking.cancelled', payload);
+        
+        // Optional: Notify Admin
+        this.emitToAdmin('admin.bookingCancelled', payload);
+    }
+
+    /** Customer notification when a stale pending payment is cancelled internally */
+    emitPaymentCancelled(userId: string, paymentId: string) {
+        const payload = { paymentId, status: 'cancelled', message: 'Your pending payment was cancelled.' };
+        this.emitToUser(userId, 'payment.cancelled', payload);
+    }
+
+    emitLocationUpdate(mechanicId: string, coords: { lat: number; lng: number }) {
+        const payload = { mechanicId, ...coords };
+        this.emitToUser(mechanicId, 'mechanic.location', payload);
+        this.emitToAdmin('admin.mechanicLocation', payload);
+    }
+
+    emitSlaBreach(
+        customerId: string,
+        detail: { bookingId: string; breachType?: string; message?: string },
+    ) {
+        const payload = { ...detail, status: 'sla_breach' };
+        this.emitToUser(customerId, 'booking.sla_breach', payload);
+        this.emitToAdmin('admin.slaBreach', payload);
+    }
 
     // Corresponds to: async emitDisputeOpened(customerId: string, mechanicId: string, bookingId: string) { ... }
     async emitDisputeOpened(customerId: string, mechanicId: string, bookingId: string) {

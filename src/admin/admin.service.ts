@@ -6,13 +6,14 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { PrismaService } from 'prisma/prisma.service';
+
 import { ResolveDisputeDto, QueryDisputesDto, QueryWalletsDto, QueryPaymentsDto } from './dto/admin.dto';
 import { DisputeService } from 'src/dispute/dispute.service';
 import { WalletService } from 'src/wallet/wallet.service';
 import { Dispute, Wallet, Payment, Prisma, DisputeStatus } from '@prisma/client'; // Import necessary Prisma types
 import { Decimal } from 'decimal.js'; // Use decimal.js for financial calculations
 import { PaymentsService } from 'src/payment/payments.services';
+import { PrismaService } from 'prisma/prisma.service';
 
 @Injectable()
 export class AdminService {
@@ -42,7 +43,7 @@ export class AdminService {
     return this.prisma.$transaction(async (tx) => {
       const dispute = await tx.dispute.findUnique({
         where: { id: disputeId },
-        include: { booking: { include: { payments: true } } }, // Include payments for refund reference
+        include: { booking: { include: { payments: true, mechanic: true } } }, // Include payments for refund reference
       });
 
       if (!dispute) {
@@ -62,25 +63,33 @@ export class AdminService {
 
       // 1. Perform Financial Adjustments (Refund/Debit)
       try {
-        if (dto.refundToCustomer && dispute.booking?.payment?.reference) {
-          await this.paymentsService.refundPayment(tx, dispute.booking.payment.reference, amountDecimal);
-          this.logger.log(`Refund of ${amountDecimal.toFixed(2)} initiated for customer ${dispute.userId} related to payment ${dispute.booking.payment.reference}.`);
-        } else if (dto.refundToCustomer && !dispute.booking?.payment?.reference) {
+        // pick the first payment reference if multiple exist
+        const payments = dispute.booking?.payments as any[] | undefined;
+        const firstRef = payments?.[0]?.reference;
+        if (dto.refundToCustomer && firstRef) {
+          // amountDecimal is in base unit (e.g. kobo) or convert as necessary
+          await this.paymentsService.refund(firstRef, amountDecimal.toNumber(), tx);
+          this.logger.log(`Refund of ${amountDecimal.toFixed(2)} initiated for customer ${dispute.userId} related to payment ${firstRef}.`);
+        } else if (dto.refundToCustomer && !firstRef) {
           this.logger.warn(`[${operation}] Refund requested for customer, but no payment reference found for booking ${dispute.bookingId}. Skipping external refund.`);
           // Potentially handle this as a wallet credit if no external refund possible
         }
 
-        if (dto.debitMechanic && dispute.mechanicId && amountDecimal.greaterThan(0)) {
+        // Use booking.mechanicId for debit operation
+        const mechanicIdToDebit = 
+        dispute.booking?.mechanicId;
+
+        if (dto.debitMechanic && mechanicIdToDebit && amountDecimal.greaterThan(0)) {
           // Debit the mechanic's wallet
           await this.walletService.debitWalletWithTx(
             tx,
-            dispute.mechanicId,
+            mechanicIdToDebit,
             amountDecimal,
             'DISPUTE_DEBIT',
-            dispute.bookingId,
+            dispute.bookingId || undefined,
             { disputeId: dispute.id, resolution: dto.resolution }
           );
-          this.logger.log(`Wallet debit of ${amountDecimal.toFixed(2)} processed for mechanic ${dispute.mechanicId}.`);
+          this.logger.log(`Wallet debit of ${amountDecimal.toFixed(2)} processed for mechanic ${mechanicIdToDebit}.`);
         }
       } catch (financialErr: any) {
         this.logger.error(`Financial operation failed during resolution: ${financialErr.message}`, financialErr.stack);
@@ -88,13 +97,15 @@ export class AdminService {
       }
 
       // 2. Update Dispute Status and Record Resolution
-      const resolvedDispute = await this.disputeService.updateDisputeStatus(
-        tx, // Pass transaction client
-        disputeId,
-        DisputeStatus.RESOLVED, // Use enum
-        dto.resolution,
-        amountDecimal, // Store the resolved amount
-      );
+      const resolvedDispute = await tx.dispute.update({
+        where: { id: disputeId },
+        data: {
+          status: DisputeStatus.RESOLVED,
+          resolution: dto.resolution,
+          resolvedAmount: amountDecimal,
+          resolvedAt: new Date(),
+        },
+      });
 
       this.logger.log(`✅ ${operation} completed successfully. Dispute ${disputeId} status: ${resolvedDispute.status}.`);
       return resolvedDispute;
@@ -128,10 +139,13 @@ export class AdminService {
       }
 
       // 2. Delegate the refund processing to the PaymentService
-      const result = await this.paymentsService.refundPayment(tx, payment.reference, amountDecimal);
+      // `refund` returns void, so update and return the record ourselves
+      await this.paymentsService.refund(payment.reference, amountDecimal.toNumber(), tx);
 
       this.logger.log(`✅ ${operation} completed successfully.`);
-      return result;
+      const updated = await tx.payment.findUnique({ where: { id: payment.id } });
+      // `updated` should always exist since we just fetched it above
+      return updated as Payment;
     });
   }
 
@@ -142,7 +156,7 @@ export class AdminService {
    * @returns A paginated list of disputes.
    */
   async listDisputes(query: QueryDisputesDto): Promise<{ data: Dispute[]; total: number; page: number; limit: number }> {
-    const { status, customerId, mechanicId, page, limit } = query;
+    const { status, customerId, mechanicId, page = 1, limit = 10 } = query;
     const skip = (page - 1) * limit;
 
     const where: Prisma.DisputeWhereInput = {};
@@ -156,7 +170,7 @@ export class AdminService {
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
-        include: { user: true, mechanic: true, booking: true }, // Include related data
+        include: { mechanic: true, booking: true }, // Include related data
       }),
       this.prisma.dispute.count({ where }),
     ]);
@@ -171,7 +185,7 @@ export class AdminService {
    * @returns A paginated list of wallets.
    */
   async listWallets(query: QueryWalletsDto): Promise<{ data: Wallet[]; total: number; page: number; limit: number }> {
-    const { userId, page, limit } = query;
+    const { userId, page = 1, limit = 10 } = query;
     const skip = (page - 1) * limit;
 
     const where: Prisma.WalletWhereInput = {};
@@ -216,7 +230,7 @@ export class AdminService {
    * @returns A paginated list of payments.
    */
   async listPayments(query: QueryPaymentsDto): Promise<{ data: Payment[]; total: number; page: number; limit: number }> {
-    const { userId, status, page, limit } = query;
+    const { userId, status, page = 1, limit = 10 } = query;
     const skip = (page - 1) * limit;
 
     const where: Prisma.PaymentWhereInput = {};

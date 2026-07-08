@@ -1,5 +1,5 @@
 /* eslint-disable prettier/prettier */
-import { Controller, Post, Body, UseGuards, Param, Get, Query, Patch, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Param, Get, Query, Patch, HttpCode, HttpStatus, ParseUUIDPipe } from '@nestjs/common';
 import { SlaService } from './sla.service';
 import { JwtAuthGuard } from 'src/auth/guard/jwt.guard';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiBody, ApiParam, ApiQuery, ApiResponse } from '@nestjs/swagger';
@@ -19,7 +19,7 @@ export class SlaController {
    */
   @Post(':bookingId')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN, Role.SYSTEM) // Only trusted roles can record timestamps
+  @Roles(Role.ADMIN, Role.SUPERADMIN) // Only trusted roles can record timestamps
   @ApiOperation({ summary: 'Records a new timestamp (assignedAt, completedAt, etc.) for a booking.' })
   // We specify 'any' and provide examples since the formal DTO class is omitted
   @ApiBody({ type: Object, description: 'Partial update object containing the timestamp(s) to record.', examples: {
@@ -48,7 +48,7 @@ export class SlaController {
 
   @Patch(':bookingId/met')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN, Role.SUPERADMIN, Role.SYSTEM)
+  @Roles(Role.ADMIN, Role.SUPERADMIN)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Mark SLA as MET (Admin/System only)' })
   @ApiParam({ name: 'bookingId', description: 'Booking ID' })

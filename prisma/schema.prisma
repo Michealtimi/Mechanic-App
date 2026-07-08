@@ -255,6 +255,22 @@ model OrgMember {
   @@index([userId])
 }
 
+model EvCertification {
+  id         String    @id @default(uuid())
+  mechanicId String
+  certUrl    String
+  provider   String?
+  verified   Boolean   @default(false)
+  verifiedBy String?
+  verifiedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  mechanic User @relation(fields: [mechanicId], references: [id], onDelete: Cascade)
+
+  @@index([mechanicId])
+}
+
 model Skill {
   id    String @id @default(uuid())
   name  String @unique // The name of the skill (e.g., 'Brake Repair')
@@ -285,8 +301,6 @@ model User {
   // REMOVED: `location: String?` (from your previous schema, replaced by lat/lng)
   currentLat           Float? // ADDED: Mechanic's current/last known latitude for geo-search
   currentLng           Float?
-  payouts              Payout[]             @relation("MechanicPayouts") // A mechanic (user) can have many payouts
-  apiKeys              ApiKey[] // Phase 3: Public API keys                            // ADDED: Mechanic's current/last known longitude for geo-search
   isAvailableForJobs   Boolean              @default(false) // ADDED: Simple toggle for a mechanic's immediate readiness for work
   mechanicOnlineStatus MechanicOnlineStatus @default(OFFLINE) // ADDED: Granular online/availability status (uses NEW Enum)
   isEvSpecialist       Boolean              @default(false) // ADDED: CRITICAL: Flag for EV specific matching
@@ -299,16 +313,21 @@ model User {
   commissionUpdatedAt  DateTime? // Phase 3: When commission rate was last updated
   commissionUpdatedBy  String? // Phase 3: Admin who updated commission rate
 
+  evCertifications  EvCertification[]
   skills            Skill[] // (Existing) array of skills (many-to-many with Skill model)
   experienceYears   Int?
   profilePictureUrl String?
   bio               String?  @db.Text // (Existing) Use @db.Text for potentially long text
   certificationUrls String[] // (Existing) Array of URLs to certifications
+  mechanicProfile MechanicProfile?
 
   averageRating      Float @default(0.0) // ADDED: Current average rating (e.g., 4.7)
   totalReviews       Int   @default(0) // ADDED: Total number of reviews received
   totalJobsCompleted Int   @default(0) // ADDED: Total number of completed jobs metric
 
+  payouts              Payout[]             @relation("MechanicPayouts") // A mechanic (user) can have many payouts
+  apiKeys              ApiKey[] // Phase 3: Public API keys
+  
   // -----------------------------------------------------------------------
   // Relations
   // -----------------------------------------------------------------------
@@ -320,7 +339,6 @@ model User {
   dispatches       Dispatch[]        @relation("MechanicDispatches")
   auditLogs        AuditLog[]        @relation("UserAuditLogs") // (Existing) Relation to audit logs
   subaccounts      Subaccount[] // (Existing) Payment subaccounts
-  disputes         Dispute[] // (Existing) Disputes involving this user
   wallets          Wallet[] // (Existing) Wallets
   payments         Payment[] // (Existing) Payments made by this user
 
@@ -330,6 +348,8 @@ model User {
   chatRoomsAsMechanic ChatRoom[]       @relation("MechanicChatRooms") // ADDED: Chat rooms where this user is the mechanic
   sentMessages        ChatMessage[]    @relation("Sender")
   segments            BookingSegment[] @relation("MechanicSegments") // Segments assigned to this mechanic
+  disputesInitiated   Dispute[]        @relation("DisputeInitiator") // Disputes initiated by this user
+  disputesAsMechanic  Dispute[]        @relation("DisputeMechanic") // Disputes where this user is the mechanic
 
   // -----------------------------------------------------------------------
   // VIN Trojan Horse (quick login, deferred verification)
@@ -368,6 +388,27 @@ model VinCheckResult {
 
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
   @@index([expiresAt])
+  @@index([userId])
+}
+
+// --------------------------------------------------------------------------------
+// Mechanic Profile Model (Separates mechanic-specific data from base User)
+// --------------------------------------------------------------------------------
+model MechanicProfile {
+  id                 String    @id @default(uuid())
+  userId             String    @unique
+  shopName           String?
+  experienceYears    Int?
+  profilePictureUrl  String?
+  bio                String?   @db.Text
+  certificationUrls  String[] // Array of URLs to certifications
+  specializations    String[] // e.g., ["EV", "Brake Repair", "Engine Overhaul"]
+  servicedModels     String[] // e.g., ["Tesla Model 3", "BMW i3", "Nissan Leaf"]
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
 }
 
@@ -598,6 +639,7 @@ model Subaccount {
 // --------------------------------------------------------------------------------
 model Dispute {
   id               String        @id @default(cuid())
+  mechanicId       String? // Denormalized: mechanic involved in dispute (optional, can come from booking)
   bookingId        String? // Link to booking (required for raising dispute)
   bookingSegmentId String? // Link to specific segment (for segment-level disputes)
   userId           String // User who initiated the dispute (customer or mechanic)
@@ -615,12 +657,15 @@ model Dispute {
   updatedAt        DateTime      @updatedAt
   tenantId         String? // Multi-tenancy support
 
+  // Relations
   booking        Booking?        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   bookingSegment BookingSegment? @relation(fields: [bookingSegmentId], references: [id])
-  user           User            @relation(fields: [userId], references: [id])
+  initiator      User            @relation("DisputeInitiator", fields: [userId], references: [id])
+  mechanic       User?           @relation("DisputeMechanic", fields: [mechanicId], references: [id]) // The mechanic involved in this dispute
 
   @@index([bookingId])
   @@index([bookingSegmentId])
+  @@index([mechanicId])
   @@index([tenantId])
 }
 

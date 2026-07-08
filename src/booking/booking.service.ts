@@ -8,7 +8,7 @@ import {
   ForbiddenException,
   Inject,
 } from '@nestjs/common';
-import { PrismaService, TransactionClient } from 'prisma/prisma.service';
+import { PrismaService } from 'prisma/prisma.service';
 import { BookingStatus, Role, PaymentStatus, SegmentStatus, Prisma } from '@prisma/client';
 import { CreateBookingDto, CreateBookingSegmentDto, BookingFilterDto } from './dto/booking.dto';
 import { CreateDispatchDto } from '../dispatch/dto/dispatch.dto';
@@ -66,7 +66,7 @@ export class BookingService {
       }
 
       // Prepare segments: use provided segments or create default single segment
-      const segments: CreateBookingSegmentDto[] = dto.segments?.length > 0
+      const segments: CreateBookingSegmentDto[] = Array.isArray(dto.segments) && dto.segments.length > 0
         ? dto.segments
         : dto.serviceId
           ? [{ type: 'default', price: '0', serviceId: dto.serviceId }]
@@ -79,7 +79,7 @@ export class BookingService {
       }
 
       // If single segment and serviceId provided, fetch service price
-      if (segments.length === 1 && dto.serviceId && !segments[0].price || segments[0].price === '0') {
+      if (segments.length === 1 && dto.serviceId && (!segments[0].price || segments[0].price === '0')) {
         const service = await this.prisma.mechanicService.findUnique({
           where: { id: dto.serviceId },
         });
@@ -100,8 +100,8 @@ export class BookingService {
         const booking = await tx.booking.create({
           data: {
             customerId,
-            mechanicId: dto.mechanicId,
-            serviceId: dto.serviceId || segments[0]?.serviceId || null,
+            mechanicId: dto.mechanicId ?? null,
+            serviceId: dto.serviceId ?? segments[0]?.serviceId ?? undefined,
             status: dto.status || BookingStatus.PENDING,
             scheduledAt: dto.scheduledAt,
             pickupLatitude: new Prisma.Decimal(dto.pickupLatitude),
@@ -118,7 +118,7 @@ export class BookingService {
                 status: SegmentStatus.PENDING,
               })),
             },
-          },
+          } as any,
           include: {
             segments: true,
             customer: true,
@@ -126,16 +126,14 @@ export class BookingService {
           },
         });
 
-        // Initialize payment (will be handled by payment service)
-        let payment = null;
+        let payment: Awaited<ReturnType<PaymentsService['initialize']>> | null = null;
         try {
-          const paymentInit = await this.paymentService.initialize({
+          payment = await this.paymentService.initialize({
             bookingId: booking.id,
-            amount: BigInt(Math.round(totalCharged.toNumber() * 100)), // Total charged (service + platform fee)
-            gateway: 'PAYSTACK', // Default gateway
+            amount: BigInt(Math.round(totalCharged.toNumber() * 100)),
+            gateway: 'PAYSTACK',
             metadata: { bookingId: booking.id, customerId },
           });
-          payment = paymentInit;
         } catch (paymentErr: any) {
           this.logger.error(`[${operation}] Payment initialization failed: ${paymentErr.message}`, paymentErr.stack);
           // Don't fail booking creation if payment init fails - it can be retried
@@ -151,7 +149,7 @@ export class BookingService {
         bookingId: result.booking.id,
         customerId: result.booking.customerId,
         status: result.booking.status,
-        totalPrice: result.booking.totalPrice.toString(),
+        totalPrice: (result.booking.totalPrice ?? result.booking.price).toString(),
         createdAt: result.booking.createdAt,
       }).catch((err) => {
         this.logger.warn(`[${operation}] Webhook trigger failed: ${err.message}`);
@@ -432,7 +430,15 @@ export class BookingService {
     this.logger.log(`[${operation}] Completing segment ${segmentId} by mechanic ${mechanicId}`);
 
     try {
-      return await this.updateSegmentStatus(segmentId, SegmentStatus.COMPLETED, mechanicId);
+      const updated = await this.updateSegmentStatus(segmentId, SegmentStatus.COMPLETED, mechanicId);
+      try {
+        await this.paymentService.releaseSegmentPayment(segmentId);
+      } catch (releaseErr: any) {
+        this.logger.warn(
+          `[${operation}] Segment marked complete but payment release skipped: ${releaseErr.message}`,
+        );
+      }
+      return updated;
     } catch (error: any) {
       this.logger.error(`[${operation}] Failed: ${error.message}`, error.stack);
       throw error;
@@ -485,7 +491,10 @@ export class BookingService {
     // Logic: If manual ID provided, use it; otherwise, find nearest online mechanic
     let mechanicId = dto.mechanicId;
     if (!mechanicId) {
-      const nearest = await this.findNearestMechanic(booking.pickupLatitude, booking.pickupLongitude);
+      const nearest = await this.findNearestMechanic(
+        Number(booking.pickupLatitude),
+        Number(booking.pickupLongitude),
+      );
       mechanicId = nearest.id;
     }
 
@@ -499,15 +508,13 @@ export class BookingService {
         data: {
           bookingId: booking.id,
           mechanicId,
-          status: 'ASSIGNED',
+          status: 'OFFERED',
           expiresAt: new Date(Date.now() + 5 * 60000), // 5 min window
         },
       });
 
       await this.slaService.createOrPatchSlaRecord(booking.id, {
-        assignedAt: new Date(),
-        expectedArrivalMs: travel.durationMs,
-        distanceMeters: travel.distanceMeters,
+        status: 'PENDING',
       });
 
       await this.notificationGateway.emitDispatchAssigned(mechanicId, { 
@@ -526,7 +533,7 @@ export class BookingService {
     return await this.prisma.$transaction(async (tx) => {
       const dispatch = await tx.dispatch.update({
         where: { id: dispatchId },
-        data: { status: 'ACCEPTED', acceptedAt: new Date() }
+        data: { status: 'ACCEPTED' }
       });
 
       const booking = await tx.booking.update({
@@ -535,8 +542,7 @@ export class BookingService {
       });
 
       await this.slaService.createOrPatchSlaRecord(booking.id, {
-        mechanicAcceptedAt: new Date(),
-        status: 'IN_TRANSIT'
+        status: 'PENDING'
       });
 
       await this.notificationGateway.emitDispatchAccepted(booking.id, mechanicId, booking.customerId);
@@ -595,8 +601,7 @@ export class BookingService {
     });
 
     await this.slaService.createOrPatchSlaRecord(bookingId, {
-      mechanicArrivedAt: new Date(),
-      status: 'ARRIVED',
+      status: 'MET',
     });
 
     await this.notificationGateway.emitMechanicArrived(bookingId, booking.mechanicId);
@@ -666,7 +671,15 @@ export class BookingService {
       data: { verifiedAt: new Date() },
     });
 
-    return this.completeBooking(bookingId);
+    const completion = await this.completeBooking(bookingId);
+    try {
+      await this.paymentService.releaseBookingPayment(bookingId);
+    } catch (releaseErr: any) {
+      this.logger.warn(
+        `[verifyCompletionPin] Booking completed but payment release skipped: ${releaseErr.message}`,
+      );
+    }
+    return completion;
   }
 
   /**
@@ -680,22 +693,24 @@ export class BookingService {
       });
 
       await this.slaService.createOrPatchSlaRecord(bookingId, {
-        completedAt: new Date(),
-        status: 'COMPLETED'
+        status: 'MET'
       });
 
       return booking;
     });
-
-    const slaReport = await this.slaService.getSla(bookingId);
-    this.logger.log(`Job Done! Total Work Time: ${slaReport.metrics.totalJobMs}ms`);
 
     // Invisible Foreman: Generate receipt for EV jobs only (static image for WhatsApp)
     this.generateReceiptIfEv(bookingId).catch((err) => {
       this.logger.warn(`[completeBooking] Receipt generation failed: ${err.message}`);
     });
 
-    await this.notificationGateway.emitBookingCompleted(bookingId, result.mechanicId, result.customerId);
+    if (result.customerId) {
+      await this.notificationGateway.emitBookingCompleted(
+        bookingId,
+        result.mechanicId ?? '',
+        result.customerId,
+      );
+    }
 
     // Record revenue share (non-blocking)
     this.revenueSharingService.recordRevenueShare(bookingId).catch((err) => {
@@ -708,13 +723,13 @@ export class BookingService {
       customerId: result.customerId,
       mechanicId: result.mechanicId,
       status: result.status,
-      totalPrice: result.totalPrice.toString(),
-      completedAt: result.completedAt,
+      totalPrice: (result.totalPrice ?? result.price).toString(),
+      completedAt: result.updatedAt,
     }).catch((err) => {
       this.logger.warn(`[completeBooking] Webhook trigger failed: ${err.message}`);
     });
 
-    return { result, metrics: slaReport.metrics };
+    return { result };
   }
 
   /**
@@ -723,9 +738,18 @@ export class BookingService {
   async cancelBooking(bookingId: string, userId: string) {
     return await this.prisma.$transaction(async (tx) => {
       const booking = await tx.booking.findUnique({ where: { id: bookingId }, include: { payments: true } });
-      if (!booking) throw new NotFoundException();
+      if (!booking) throw new NotFoundException('Booking not found');
+      if (booking.customerId !== userId) {
+        throw new ForbiddenException('You can only cancel your own booking');
+      }
+      if (
+        booking.status !== BookingStatus.PENDING &&
+        booking.status !== BookingStatus.CONFIRMED &&
+        booking.status !== BookingStatus.SCHEDULED
+      ) {
+        throw new BadRequestException(`Cannot cancel booking in status ${booking.status}`);
+      }
 
-      // Refund if paid (booking has payments array). Amount in kobo (payment.amount is stored in kobo).
       const successPayment = booking.payments?.find((p) => p.status === PaymentStatus.SUCCESS);
       if (successPayment) {
         await this.paymentService.refund(successPayment.reference, successPayment.amount, tx);
@@ -736,7 +760,7 @@ export class BookingService {
         data: { status: BookingStatus.CANCELLED }
       });
 
-      await this.slaService.createOrPatchSlaRecord(bookingId, { status: 'CANCELLED' });
+      await this.slaService.createOrPatchSlaRecord(bookingId, { status: 'BREACHED' });
 
       // Trigger webhook for booking cancellation (non-blocking)
       this.webhookService.triggerWebhook(WebhookEvent.BOOKING_CANCELLED, {

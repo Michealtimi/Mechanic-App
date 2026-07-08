@@ -21,6 +21,7 @@ import { JwtAuthGuard } from 'src/auth/guard/jwt.guard';
 import { RolesGuard } from 'src/common/guard/roles.guards';
 import { Roles } from 'src/common/decorators/roles.decorators';
 import { Role } from '@prisma/client';
+import { Decimal } from '@prisma/client/runtime/library';
 
 export class DebitWalletDto {
   amount: number;
@@ -115,7 +116,7 @@ export class WalletController {
     if (!amount || amount <= 0) {
       throw new BadRequestException('Credit amount must be a positive number.');
     }
-    return this.walletService.creditMechanic(mechanicId, amount, bookingId);
+    return this.walletService.creditMechanic(mechanicId, new Decimal(amount), bookingId);
   }
 
 
@@ -135,7 +136,7 @@ export class WalletController {
     }
 
     try {
-      return await this.walletService.debitWallet(userId, dto.amount, dto.type, dto.bookingId);
+      return await this.walletService.debitWallet(userId, new Decimal(dto.amount), dto.type, dto.bookingId);
     } catch (e) {
       if (e instanceof InternalServerErrorException && e.message.includes('Insufficient balance')) {
         throw new BadRequestException('Insufficient funds in wallet.');

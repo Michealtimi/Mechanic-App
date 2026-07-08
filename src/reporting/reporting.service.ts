@@ -14,7 +14,8 @@ import {
   OrganizationReportDto,
   TimeRange,
 } from './dto/reporting.dto';
-import { BookingStatus, PaymentStatus, SegmentStatus, DisputeStatus } from '@prisma/client';
+import { BookingStatus, PaymentStatus, SegmentStatus, VehicleStatus } from '@prisma/client';
+
 import { Decimal } from 'decimal.js';
 
 const REPORTING_ANALYTICS_CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes
@@ -158,7 +159,7 @@ export class ReportingService {
       let platformFees = new Decimal(0);
       let mechanicEarnings = new Decimal(0);
 
-      payments.forEach((payment) => {
+      payments.forEach((payment:any) => {
         const amount = payment.amount || 0;
         totalRevenue = totalRevenue.plus(amount);
         platformFees = platformFees.plus(payment.platformFee || 0);
@@ -177,7 +178,7 @@ export class ReportingService {
       });
 
       const totalRefunds = refunds.reduce(
-        (sum, refund) => sum.plus(refund.amount || 0),
+        (sum:any, refund:any) => sum.plus(refund.amount || 0),
         new Decimal(0),
       );
 
@@ -217,12 +218,12 @@ export class ReportingService {
     try {
       const { startDate, endDate } = this.getDateRange(filter);
 
-      const mechanic = await this.prisma.user.findUnique({
-        where: { id: mechanicId },
-        include: {
-          mechanicProfile: true,
-        },
-      });
+     const mechanic = await this.prisma.user.findUnique({
+      where: { id: mechanicId },
+      include: {
+        mechanicProfile: true,
+      },
+    });
 
       if (!mechanic || !mechanic.mechanicProfile) {
         throw new BadRequestException('Mechanic not found');
@@ -246,12 +247,12 @@ export class ReportingService {
         (s) => s.status === SegmentStatus.COMPLETED,
       );
       const totalBookings = segments.length;
-      const completionRate =
+      const completionRate = 
         totalBookings > 0 ? (completedSegments.length / totalBookings) * 100 : 0;
 
       // Calculate earnings (segment has payments array)
       const totalEarnings = completedSegments.reduce(
-        (sum, segment) => {
+        (sum:any, segment:any) => {
           const pay = segment.payments?.find((p) => p.status === PaymentStatus.SUCCESS);
           if (pay) {
             const amount = pay.amount || 0;
@@ -359,7 +360,7 @@ export class ReportingService {
 
       const bookings = await this.prisma.booking.findMany({
         where: {
-          organizationId,
+          orgId: organizationId,
           createdAt: {
             gte: startDate,
             lte: endDate,
@@ -376,8 +377,8 @@ export class ReportingService {
 
       const vehicles = await this.prisma.vehicle.findMany({
         where: {
-          organizationId,
-          status: 'ACTIVE',
+          orgId: organizationId,
+          status: VehicleStatus.ACTIVE,
         },
       });
 
@@ -385,7 +386,7 @@ export class ReportingService {
         where: {
           orgMemberships: {
             some: {
-              organizationId,
+              orgId: organizationId,
             },
           },
         },
@@ -394,8 +395,9 @@ export class ReportingService {
       const totalSpending = bookings.reduce((sum, booking) => {
         return sum.plus(
           booking.segments.reduce((segSum, segment) => {
-            if (segment.payment && segment.payment.status === PaymentStatus.COMPLETED) {
-              return segSum.plus(segment.payment.amount || 0);
+            const successPay = segment.payments?.find((p) => p.status === PaymentStatus.SUCCESS);
+            if (successPay) {
+              return segSum.plus(successPay.amount || 0);
             }
             return segSum;
           }, new Decimal(0)),

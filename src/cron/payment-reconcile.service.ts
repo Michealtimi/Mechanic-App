@@ -44,11 +44,7 @@ export class PaymentReconcileService implements OnModuleInit {
       const paymentsToReconcile = await this.prisma.payment.findMany({
         where: {
           status: {
-            in: [
-              PaymentStatus.INITIATED, // Assuming you have this status
-              PaymentStatus.PENDING,
-              PaymentStatus.AUTHORIZED, // If you capture later
-            ],
+            in: [PaymentStatus.PENDING, PaymentStatus.AUTHORIZED],
           },
           createdAt: { lt: cutoffDate } // Only reconcile payments older than a certain threshold
         },
@@ -75,7 +71,7 @@ export class PaymentReconcileService implements OnModuleInit {
           // - Updating the payment status in your DB
           // - Triggering post-payment actions (like crediting wallets, updating booking status)
           // - Handling amount mismatches
-          const verificationResult = await this.paymentsService.verifyPayment(payment.reference);
+          const verificationResult = await this.paymentsService.verifyPayment(payment.reference, payment.gateway);
 
           // The verifyPayment method should handle the DB updates, so we just log the outcome here
           this.logger.log(

@@ -7,6 +7,7 @@ import { Roles } from 'src/common/decorators/roles.decorators';
 import { EvCertService } from './ev.service';
 import { UploadEvCertDto } from './dto/ev.dto';
 import { RolesGuard } from 'src/common/guard/roles.guards';
+import { UserRequest } from 'src/common/interfaces/user-request.interface';
 
 @ApiTags('EV Certification')
 @ApiBearerAuth()

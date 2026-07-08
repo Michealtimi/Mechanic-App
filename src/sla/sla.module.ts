@@ -2,21 +2,15 @@
 import { Module } from '@nestjs/common';
 import { SlaService } from './sla.service';
 import { SlaController } from './sla.controller';
-import { PrismaService } from 'prisma/prisma.service'; 
-import { JwtAuthGuard } from 'src/auth/jwt.guard'; 
-import { RolesGuard } from 'src/auth/roles.guard'; 
+import { PrismaModule } from 'prisma/prisma.module';
+import { NotificationModule } from 'src/notification/notification.module';
+import { ApiModule } from 'src/api/api.module';
+import { MetricsModule } from 'src/metrics/metrics.module';
 
 @Module({
-  // Providers: Register the service and dependencies
-  providers: [
-    SlaService, 
-    PrismaService, // Service dependency
-    JwtAuthGuard, // Controller dependency
-    RolesGuard,   // Controller dependency
-  ],
-  // Controllers: Register the controller
+  imports: [PrismaModule, NotificationModule, ApiModule, MetricsModule],
+  providers: [SlaService],
   controllers: [SlaController],
-  // Exports: Allow other modules (like Dispatch) to inject and use the service
-  exports: [SlaService], 
+  exports: [SlaService],
 })
 export class SlaModule {}

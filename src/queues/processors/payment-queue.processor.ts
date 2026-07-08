@@ -191,6 +191,8 @@ export class PaymentQueueProcessor extends WorkerHost {
         throw new Error('No mechanic assigned to booking');
       }
 
+      const mechanicId = booking.mechanicId;
+
       // Calculate amount to release (segment price or booking price)
       const amountToRelease = segment
         ? new Decimal(segment.price.toString())
@@ -210,7 +212,7 @@ export class PaymentQueueProcessor extends WorkerHost {
         // Credit mechanic wallet
         await this.walletService.creditMechanicInTransaction(
           tx,
-          booking.mechanicId,
+          mechanicId,
           amountToRelease,
           booking.id,
           {
@@ -223,7 +225,7 @@ export class PaymentQueueProcessor extends WorkerHost {
         return { paymentId: payment.id, amount: amountToRelease.toString() };
       });
 
-      this.logger.log(`[${operation}] Released ${amountToRelease.toString()} to mechanic ${booking.mechanicId}`);
+      this.logger.log(`[${operation}] Released ${amountToRelease.toString()} to mechanic ${mechanicId}`);
       return { success: true, ...result };
     } catch (error: any) {
       this.logger.error(`[${operation}] Failed: ${error.message}`, error.stack);

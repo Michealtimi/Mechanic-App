@@ -34,8 +34,8 @@ export class ChatService {
     try {
       // 1. Prioritize finding by bookingId if provided, due to its unique constraint.
       if (bookingId) {
-        const roomByBooking = await this.prisma.chatRoom.findUnique({
-          where: { bookingId }, // This leverages the unique constraint
+        const roomByBooking = await this.prisma.chatRoom.findFirst({
+          where: { bookingId },
           include: { customer: true, mechanic: true }, // Include for context in response
         });
 
@@ -56,8 +56,12 @@ export class ChatService {
       // 2. If no bookingId provided OR no room found by bookingId,
       //    try to find a general (non-booking-specific) room between the customer and mechanic.
       //    This uses the compound unique constraint { customerId, mechanicId }.
-      let room = await this.prisma.chatRoom.findUnique({
-        where: { customerId_mechanicId: { customerId, mechanicId } },
+      let room = await this.prisma.chatRoom.findFirst({
+        where: {
+          customerId,
+          mechanicId,
+          bookingSegmentId: null,
+        },
         include: { customer: true, mechanic: true },
       });
 

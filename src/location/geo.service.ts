@@ -9,7 +9,11 @@ import {
 import { PrismaService } from 'prisma/prisma.service';
 import { User, Role, Prisma } from '@prisma/client';
 import { NotificationGateway } from 'src/notification/notification.gateway';
-import { GoogleMapsService } from 'src/api/google-maps.service';
+import { Inject } from '@nestjs/common';
+import {
+  IMapsService,
+  MAPS_SERVICE_TOKEN,
+} from 'src/common/interfaces/maps-service.interface';
 
 interface MechanicWithDistance extends User {
   distance: number;
@@ -22,12 +26,23 @@ export class GeoService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationGateway: NotificationGateway,
-    private readonly googleMaps: GoogleMapsService,
+    @Inject(MAPS_SERVICE_TOKEN) private readonly maps: IMapsService,
   ) {}
 
   /**
    * Updates mechanic location and broadcasts to active subscribers.
    */
+  /** Read current mechanic row (includes last known lat/lng). */
+  async getMechanicLocation(mechanicId: string): Promise<User> {
+    const mechanic = await this.prisma.user.findFirst({
+      where: { id: mechanicId, role: Role.MECHANIC },
+    });
+    if (!mechanic) {
+      throw new NotFoundException('Mechanic not found.');
+    }
+    return mechanic;
+  }
+
   async updateMechanicLocation(mechanicId: string, lat: number, lng: number): Promise<User> {
     if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
       throw new BadRequestException('Invalid coordinates.');
@@ -128,7 +143,7 @@ export class GeoService {
       }
     }
 
-    const loc = await this.googleMaps.geocodeAddress(address);
+    const loc = await this.maps.geocodeAddress(address);
     await this.prisma.geocodeCache.upsert({
       where: { address: key },
       create: { address: key, lat: loc.lat, lng: loc.lng },
@@ -144,9 +159,9 @@ export class GeoService {
     originAddress: string,
     destinationAddress: string,
   ): Promise<{ distance: number; duration: number; eta?: string }> {
-    const origin = await this.googleMaps.geocodeAddress(originAddress);
-    const dest = await this.googleMaps.geocodeAddress(destinationAddress);
-    const result = await this.googleMaps.getDistanceAndDuration(origin, dest);
+    const origin = await this.maps.geocodeAddress(originAddress);
+    const dest = await this.maps.geocodeAddress(destinationAddress);
+    const result = await this.maps.getDistanceAndDuration(origin, dest);
     const durationMin = Math.round(result.durationSeconds / 60);
     const eta = new Date(Date.now() + result.durationSeconds * 1000).toISOString();
     return {

@@ -19,7 +19,7 @@ npm install
 - **Queue System**: `@nestjs/bullmq`, `bullmq`, `ioredis`
 - **WebSockets**: `@nestjs/websockets`, `socket.io`, `@socket.io/redis-adapter`
 - **Payment**: Payment gateway interfaces (Paystack/Flutterwave)
-- **Maps**: `@googlemaps/google-maps-services-js`
+- **Maps**: OpenStreetMap/Nominatim (HTTP-based geocoding) + provider abstraction (`IMapsService`)
 - **Validation**: `class-validator`, `class-transformer`
 - **Security**: `@nestjs/jwt`, `passport`, `helmet`, `bcryptjs`
 - **Testing**: `jest`, `@nestjs/testing`, `supertest`
@@ -46,8 +46,9 @@ PAYSTACK_SECRET_KEY="your-paystack-secret"
 PAYSTACK_PUBLIC_KEY="your-paystack-public"
 PAYSTACK_WEBHOOK_SECRET="your-webhook-secret"
 
-# Google Maps
-GOOGLE_MAPS_API_KEY="your-google-maps-api-key"
+# Maps (optional overrides)
+# NOMINATIM_BASE_URL="https://nominatim.openstreetmap.org"
+# NOMINATIM_USER_AGENT="mechanic-app-backend/1.0"
 
 # Email (Nodemailer)
 SMTP_HOST="smtp.gmail.com"
@@ -94,10 +95,9 @@ Based on the implementation work completed:
    - Partial payment release
    - Payment status calculation
 
-8. **Phase 7: Google Maps Integration** - ✅ 100% (Just Completed!)
+8. **Phase 7: Maps Integration (OSM/Nominatim)** - ✅ 100% (Core completed)
    - Geocoding
-   - Reverse geocoding
-   - Route optimization
+   - Distance estimation (provider abstraction + fallback model)
 
 9. **Phase 8: Testing & Documentation** - ✅ 100% (Just Completed!)
    - Unit tests for booking service
@@ -215,7 +215,7 @@ yarn prisma:generate
 - [x] Multi-segment bookings
 - [x] Segment-level payments
 - [x] Queue processors
-- [x] Google Maps integration
+- [x] OSM/Nominatim maps integration
 - [x] Tests and documentation
 - [ ] Database migration (pending)
 - [ ] Environment setup (pending)

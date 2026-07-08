@@ -9,6 +9,7 @@ import {
   Max,
   IsOptional,
   IsUUID,
+  IsString,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type, Expose } from 'class-transformer';

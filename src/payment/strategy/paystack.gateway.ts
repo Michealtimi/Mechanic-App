@@ -69,7 +69,7 @@ export class PaystackGateway implements IPaymentGateway {
     // ----------------------------------------------------------------------
     // 1. INITIALIZE PAYMENT
     // ----------------------------------------------------------------------
-    async initializePayment({ amount, email, metadata }: InitializePaymentData): Promise<{ paymentUrl: string; reference: string; }> {
+    async initializePayment({ amount, email, metadata }: InitializePaymentData): Promise<{ paymentUrl: string; reference: string; raw?: unknown }> {
         const operation = 'Initialize Payment';
         try {
             this.logger.log(`🚀 ${operation} for ${email}`);
@@ -88,6 +88,7 @@ export class PaystackGateway implements IPaymentGateway {
             return {
                 paymentUrl: res.data.data.authorization_url,
                 reference: res.data.data.reference,
+                raw: res.data.data,
             };
         } catch (err) {
             this.handlePaystackError(operation, err);
@@ -163,9 +164,54 @@ export class PaystackGateway implements IPaymentGateway {
         }
     }
 
-    async initiateTransfer(): Promise<{ success: boolean; message?: string; raw?: any }> {
-        this.logger.warn('Paystack initiateTransfer not implemented in this gateway.');
-        return { success: false, message: 'Not implemented' };
+    async initiateTransfer(request: import('../interface/payment-gateway.interface').TransferRequest): Promise<import('../interface/payment-gateway.interface').TransferResponse> {
+        const operation = `Paystack Transfer ${request.internalReference}`;
+        try {
+            this.logger.log(`💸 ${operation} to ${request.recipientName}`);
+
+            const recipientRes = await axios.post(
+                `${this.baseUrl}/transferrecipient`,
+                {
+                    type: 'nuban',
+                    name: request.recipientName,
+                    account_number: request.bankAccountNumber,
+                    bank_code: request.bankCode,
+                    currency: request.currency || 'NGN',
+                    email: request.email,
+                },
+                { headers: { Authorization: `Bearer ${this.secret}` }, timeout: 15000 },
+            );
+
+            const recipientCode = recipientRes.data?.data?.recipient_code;
+            if (!recipientCode) {
+                throw new InternalServerErrorException('Paystack recipient creation failed');
+            }
+
+            const transferRes = await axios.post(
+                `${this.baseUrl}/transfer`,
+                {
+                    source: 'balance',
+                    amount: Math.round(request.amount),
+                    recipient: recipientCode,
+                    reference: request.internalReference,
+                    reason: request.reason || 'Mechanic payout',
+                    currency: request.currency || 'NGN',
+                },
+                { headers: { Authorization: `Bearer ${this.secret}` }, timeout: 20000 },
+            );
+
+            const data = transferRes.data?.data;
+            const success = transferRes.data?.status === true;
+            return {
+                success,
+                providerRef: data?.transfer_code || data?.id,
+                message: data?.status || (success ? 'Transfer initiated' : 'Transfer failed'),
+                raw: data,
+            };
+        } catch (err) {
+            this.handlePaystackError(operation, err);
+            throw err;
+        }
     }
 
     async refund(reference: string, amount?: number): Promise<RefundResult> {

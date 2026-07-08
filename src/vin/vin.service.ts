@@ -2,7 +2,8 @@ import {
   Injectable,
   Logger,
   NotFoundException,
-  TooManyRequestsException,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
 import { VinNhtsaClient, NormalizedVinResult } from './vin-nhtsa.client';
@@ -34,8 +35,9 @@ export class VinService {
     const key = getRateLimitKey(ip);
     const current = ipDayCount.get(key) ?? 0;
     if (current >= RATE_LIMIT_PER_IP_PER_DAY) {
-      throw new TooManyRequestsException(
+      throw new HttpException(
         `VIN check limit reached (${RATE_LIMIT_PER_IP_PER_DAY} per day). Sign up for more.`,
+        HttpStatus.TOO_MANY_REQUESTS,
       );
     }
     ipDayCount.set(key, current + 1);
@@ -79,7 +81,7 @@ export class VinService {
 
     return {
       vin: result.vin,
-      payload: result.payload as NormalizedVinResult,
+      payload: result.payload as unknown as NormalizedVinResult,
     };
   }
 }

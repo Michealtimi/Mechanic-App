@@ -10,7 +10,11 @@ import {
 import { PrismaService } from 'prisma/prisma.service';
 import { Prisma, BookingStatus, Role, DispatchStatus } from '@prisma/client';
 import { CreateDispatchDto } from './dto/dispatch.dto';
-import { GoogleMapsService } from 'src/api/google-maps.service';
+import { Inject } from '@nestjs/common';
+import {
+  IMapsService,
+  MAPS_SERVICE_TOKEN,
+} from 'src/common/interfaces/maps-service.interface';
 import { SlaService } from 'src/sla/sla.service';
 import { NotificationGateway } from 'src/notification/notification.gateway';
 import { GeoService } from 'src/location/geo.service';
@@ -22,7 +26,7 @@ export class DispatchService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly googleMaps: GoogleMapsService,
+    @Inject(MAPS_SERVICE_TOKEN) private readonly maps: IMapsService,
     private readonly slaService: SlaService,
     private readonly notificationGateway: NotificationGateway,
     private readonly geoService: GeoService,
@@ -252,7 +256,7 @@ export class DispatchService {
 
   private async getTravelMetrics(mechanic: any, booking: any) {
     if (!mechanic.currentLat || !booking.pickupLatitude) return { distanceMeters: 0, durationMs: 0 };
-    const res = await this.googleMaps.getDistanceAndDuration(
+    const res = await this.maps.getDistanceAndDuration(
       { lat: Number(mechanic.currentLat), lng: Number(mechanic.currentLng) },
       { lat: Number(booking.pickupLatitude), lng: Number(booking.pickupLongitude) }
     );

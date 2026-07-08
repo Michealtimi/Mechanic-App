@@ -1,7 +1,5 @@
-/**
- * Invisible Foreman: Global platform config (env with defaults).
- * Override via env or PlatformConfig table for editable values.
- */
+import { ConfigService } from '@nestjs/config';
+
 export const PLATFORM_CONFIG_KEYS = {
   DISPATCH_RADIUS_KM: 'DISPATCH_RADIUS_KM',
   GEOFENCE_RADIUS_METRES: 'GEOFENCE_RADIUS_METRES',
@@ -19,3 +17,12 @@ export const DEFAULT_PLATFORM_CONFIG: Record<string, string> = {
   [PLATFORM_CONFIG_KEYS.DISPATCH_OFFER_TIMEOUT_MS]: '120000',
   [PLATFORM_CONFIG_KEYS.PLATFORM_COMMISSION_PERCENT]: '10',
 };
+
+/** ISO 4217 currency for payment gateways (NGN, USD, GBP, KES, etc.). */
+export function getDefaultCurrency(config: ConfigService): string {
+  return (config.get<string>('DEFAULT_CURRENCY') || 'NGN').toUpperCase();
+}
+
+export function getDefaultLocale(config: ConfigService): string {
+  return config.get<string>('DEFAULT_LOCALE') || 'en-NG';
+}

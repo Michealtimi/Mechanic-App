@@ -1,9 +1,8 @@
 // src/audit/audit.service.ts - Your provided code
 // Make sure the import for PrismaService matches its actual location
-import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service'; // Adjust path
-import { QueryAuditDto } from './dto/query-audit.dto';
-import { ProblemDetailsException } from '../common/exceptions/problem-details.exception'; // Adjust path
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { PrismaService } from 'prisma/prisma.service';
+import { QueryAuditDto } from './dto/audit.dto';
 
 export interface AuditLogData {
   actor: string;
@@ -118,12 +117,7 @@ export class AuditService {
     });
 
     if (!auditLog) {
-      throw new ProblemDetailsException({
-        status: 404,
-        title: 'Not Found',
-        detail: `Audit log with ID '${id}' not found`,
-        code: 'AUDIT_LOG_NOT_FOUND',
-      });
+      throw new NotFoundException(`Audit log with ID '${id}' not found`);
     }
 
     return auditLog;

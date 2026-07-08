@@ -304,7 +304,7 @@ export class DisputeService {
       return this.prisma.dispute.findMany({
         where: filter,
         include: {
-          user: true,
+          initiator: true,
           booking: { include: { segments: true } },
           bookingSegment: true,
         },
@@ -327,7 +327,7 @@ export class DisputeService {
       return this.prisma.dispute.findUnique({
         where: { id: disputeId },
         include: {
-          user: true,
+          initiator: true,
           booking: { include: { segments: true } },
           bookingSegment: true,
         },

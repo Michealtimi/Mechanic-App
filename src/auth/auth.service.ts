@@ -26,6 +26,8 @@ import { Role, Status } from '@prisma/client';
 import { plainToInstance } from 'class-transformer';
 import { MailService } from 'src/utils/mail.service';
 import { UserResponseDto } from '../users/dto/user.dto';
+import { getJwtAccessSecret, getJwtRefreshSecret } from 'src/config/jwt.config';
+import { GoogleTokenService } from './google-token.service';
 
 @Injectable()
 export class AuthService {
@@ -36,6 +38,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
     private readonly mailService: MailService,
+    private readonly googleTokenService: GoogleTokenService,
   ) {}
 
   /* ----------------- REGISTER (Public & Admin Registration) ----------------- */
@@ -202,13 +205,14 @@ export class AuthService {
       let authProvider: string;
       let password: string;
 
-      if (dto.provider === 'google' && (dto.idToken || dto.email)) {
-        email = dto.email?.trim() ?? '';
-        if (!email) {
-          throw new BadRequestException('Email is required when using Google sign-in');
+      if (dto.provider === 'google') {
+        if (!dto.idToken) {
+          throw new BadRequestException('Google idToken is required for Google sign-in');
         }
-        firstName = dto.firstName?.trim() ?? 'User';
-        lastName = dto.lastName?.trim() ?? '';
+        const googleUser = await this.googleTokenService.verifyIdToken(dto.idToken);
+        email = googleUser.email;
+        firstName = dto.firstName?.trim() || googleUser.firstName;
+        lastName = dto.lastName?.trim() || googleUser.lastName;
         authProvider = 'google';
         password = await this.hashPassword(uuidv4() + Date.now());
       } else {
@@ -279,7 +283,7 @@ export class AuthService {
     this.logger.log('Logout initiated.');
     try {
       const payload: any = await this.jwtService.verifyAsync(refreshToken, {
-        secret: this.config.get<string>('JWT_REFRESH_SECRET'),
+        secret: getJwtRefreshSecret(this.config),
       });
 
       const jti = payload.jti;
@@ -316,7 +320,7 @@ export class AuthService {
       let payload: any;
       try {
         payload = await this.jwtService.verifyAsync(refreshToken, {
-          secret: this.config.get<string>('JWT_REFRESH_SECRET'),
+          secret: getJwtRefreshSecret(this.config),
         });
       } catch {
         this.logger.error('Invalid refresh token provided during verification.');
@@ -526,13 +530,13 @@ export class AuthService {
       };
 
       const accessToken = await this.jwtService.signAsync({ ...accessPayload }, {
-        secret: this.config.get<string>('JWT_ACCESS_SECRET'),
-        expiresIn: this.config.get<string>('JWT_ACCESS_EXPIRES') || '15m',
+        secret: getJwtAccessSecret(this.config),
+        expiresIn: (this.config.get<string>('JWT_ACCESS_EXPIRES') || '15m') as any,
       });
 
       const refreshToken = await this.jwtService.signAsync({ ...refreshPayload }, {
-        secret: this.config.get<string>('JWT_REFRESH_SECRET'),
-        expiresIn: this.config.get<string>('JWT_REFRESH_EXPIRES') || '7d',
+        secret: getJwtRefreshSecret(this.config),
+        expiresIn: (this.config.get<string>('JWT_REFRESH_EXPIRES') || '7d') as any,
       });
 
       const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);

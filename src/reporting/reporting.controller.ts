@@ -32,7 +32,7 @@ export class ReportingController {
 
   @Get('bookings/analytics')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.SUPERADMIN, Role.ORG_ADMIN)
+  @Roles(Role.ADMIN, Role.SUPERADMIN, Role.MERCHANT)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get booking analytics (Admin/OrgAdmin only)' })
   @ApiResponse({ status: 200, description: 'Booking analytics retrieved', type: BookingAnalyticsDto })
@@ -49,7 +49,7 @@ export class ReportingController {
 
   @Get('revenue')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.SUPERADMIN, Role.ORG_ADMIN)
+  @Roles(Role.ADMIN, Role.SUPERADMIN, Role.MERCHANT)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get revenue report (Admin/OrgAdmin only)' })
   @ApiResponse({ status: 200, description: 'Revenue report retrieved', type: RevenueReportDto })
@@ -60,7 +60,7 @@ export class ReportingController {
     if (req.user.role !== Role.SUPERADMIN && req.user.tenantId) {
       filter.tenantId = req.user.tenantId;
     }
-    if (req.user.role === Role.ORG_ADMIN && req.user.organizationId) {
+    if (req.user.role === Role.MERCHANT && req.user.organizationId) {
       filter.organizationId = req.user.organizationId;
     }
     return await this.reportingService.getRevenueReport(filter);
@@ -68,7 +68,7 @@ export class ReportingController {
 
   @Get('mechanics/:mechanicId/performance')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.SUPERADMIN, Role.ORG_ADMIN, Role.MECHANIC)
+   @Roles(Role.ADMIN, Role.SUPERADMIN, Role.MERCHANT, Role.MECHANIC)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get mechanic performance report' })
   @ApiParam({ name: 'mechanicId', description: 'Mechanic ID' })
@@ -90,7 +90,7 @@ export class ReportingController {
 
   @Get('organizations/:organizationId')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.SUPERADMIN, Role.ORG_ADMIN)
+  @Roles(Role.ADMIN, Role.SUPERADMIN, Role.MERCHANT)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get organization report (Admin/OrgAdmin only)' })
   @ApiParam({ name: 'organizationId', description: 'Organization ID' })
@@ -101,7 +101,7 @@ export class ReportingController {
     @Req() req,
   ): Promise<OrganizationReportDto> {
     // OrgAdmins can only view their own organization
-    if (req.user.role === Role.ORG_ADMIN && req.user.organizationId !== organizationId) {
+    if (req.user.role === Role.MERCHANT && req.user.organizationId !== organizationId) {
       throw new ForbiddenException('You can only view your own organization report');
     }
     if (req.user.role !== Role.SUPERADMIN && req.user.tenantId) {

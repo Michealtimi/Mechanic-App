@@ -1,53 +1,33 @@
 // src/payment/payments.module.ts
-import { Module, HttpModule } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { PaymentController } from './payments.controller';
-import { FlutterwaveGateway } from './strategy/flutterwave.gateway';
-import { PaystackGateway } from './strategy/paystack.gateway';
-import { PrismaService } from 'prisma/prisma.service';
-import { SandboxGateway } from './strategy/sandbox.gateway';
 import { PaymentsService } from './payments.services';
 import { PaystackWebhookController } from './paystack-webhook.controller';
 import { FlutterwaveWebhookController } from './flutterwave-webhook.controller';
-import { WalletService } from 'src/wallet/wallet.service'; // ⬅️ NEW: WalletService import
-import { NotificationGateway } from 'src/notification/notification.gateway'; // ⬅️ NEW: NotificationGateway import
-import { HttpService } from '@nestjs/axios';
+import { WalletModule } from 'src/wallet/wallet.module';
+import { NotificationModule } from 'src/notification/notification.module';
+import { MetricsModule } from 'src/metrics/metrics.module';
+import { PaymentEventService } from './payment-event.service';
+import { PaymentEventRepository } from './payment-event.repository';
+import { PaymentGatewayFactory } from './payment-gateway.factory';
+import { PrismaService } from 'prisma/prisma.service';
 
 @Module({
-  imports: [
-    HttpModule, // Needed if gateways use HttpService (Axios)
-    ConfigModule, // Needed for ConfigService injection
-  ],
+  imports: [ConfigModule, WalletModule, NotificationModule, MetricsModule],
   providers: [
     PrismaService,
-    PaymentService, // ⬅️ Change to PaymentsService (plural)
-    WalletService, // ⬅️ NEW: Provide WalletService
-    NotificationGateway, // ⬅️ NEW: Provide NotificationGateway
+    PaymentGatewayFactory,
+    PaymentsService,
+    PaymentEventService,
+    PaymentEventRepository,
     {
       provide: 'IPaymentGateway',
-      useFactory: (configService: ConfigService, httpService: HttpService) => { // ⬅️ Inject ConfigService and HttpService
-        const gatewayName = configService.get<string>('PAYMENT_GATEWAY')?.toUpperCase() || 'SANDBOX';
-        
-        switch (gatewayName) {
-          case 'FLUTTERWAVE':
-            return new FlutterwaveGateway(configService, httpService); // Pass dependencies
-          case 'PAYSTACK':
-            return new PaystackGateway(configService, httpService); // Pass dependencies
-          case 'SANDBOX':
-            return new SandboxGateway(); 
-          default:
-            return new SandboxGateway();
-        }
-      },
-      inject: [ConfigService, HttpService], // ⬅️ Explicitly inject dependencies into useFactory
+      useFactory: (factory: PaymentGatewayFactory) => factory.getDefault(),
+      inject: [PaymentGatewayFactory],
     },
-   
   ],
-  controllers: [
-    PaymentController, // ⬅️ This should probably be a more general client-facing PaymentsController
-    PaystackWebhookController,
-    FlutterwaveWebhookController,
-  ],
-  exports: [PaymentsService],
+  controllers: [PaymentController, PaystackWebhookController, FlutterwaveWebhookController],
+  exports: [PaymentsService, PaymentGatewayFactory, 'IPaymentGateway'],
 })
-export class PaymentModule {} 
+export class PaymentModule {}

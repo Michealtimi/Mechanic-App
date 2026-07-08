@@ -11,7 +11,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@ne
 import { RevenueSharingService } from './revenue-sharing.service';
 import { JwtAuthGuard } from '../auth/guard/jwt.guard';
 import { RolesGuard } from '../common/guard/roles.guards';
-import { Roles } from '../common/decorators/roles.decorator';
+import { Roles } from '../common/decorators/roles.decorators';
 import { Role } from '@prisma/client';
 import { RevenueShareDto, RevenueReportDto, RevenueFilterDto } from './dto/revenue-sharing.dto';
 
