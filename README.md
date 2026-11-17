@@ -1,112 +1,62 @@
-# 🔧 Mechanic Service Booking Platform (SaaS)
+# Mechanic Service Booking Platform
 
-A modern SaaS platform that connects customers with verified mechanics.  
-It enables booking, payments (with escrow), service management, and more.
+A NestJS backend for a mechanic-service marketplace. The application supports customer and mechanic workflows, service discovery, booking and dispatch operations, payment-provider integrations, and asynchronous processing.
 
----
+## Backend capabilities
 
-## 🚀 Features
+- Authentication and role-aware access for platform users
+- Mechanic profiles, service listings, and service discovery
+- Booking and dispatch workflows
+- Payment integration adapters, including Paystack, Flutterwave, Stripe, and sandbox/testing flows
+- Payment webhook endpoints and payment-status handling
+- Wallet- and payout-related application services
+- Tenant-aware access patterns
+- Background jobs and scheduled processing with BullMQ
+- Real-time application events with Socket.IO
+- API documentation with Swagger
 
-### ✅ Authentication & Authorization
-- JWT-based authentication (Customer, Mechanic, Admin roles).
-- Secure signup/login (email + password).
-- Role-based access control.
+## Technology
 
-### ✅ Mechanic Module
-- Profile setup (bio, skills, certifications, profile picture).
-- Manage services (add, update, delete).
-- View earnings & past payouts.
+- Node.js, NestJS, TypeScript
+- PostgreSQL and Prisma
+- Redis and BullMQ
+- Socket.IO
+- Jest and Swagger/OpenAPI
 
-### ✅ Customer Module
-- Browse mechanics (search by skill/service/location).
-- Book a service (choose mechanic & service, select time).
-- Track booking status (Pending → Confirmed → Completed).
+## Run locally
 
-### ✅ Booking Module
-- Create booking with validation.
-- Mechanic can accept/reject.
-- Customer can cancel before confirmation.
-- Full booking lifecycle.
+### Prerequisites
 
-### ✅ Payment Module (WIP 🚧)
-- Paystack & Flutterwave integration.
-- Escrow system (funds held until service is completed).
-- Automatic payout to mechanics.
-- Commission logic for platform earnings.
+- Node.js (use the version specified by the project configuration, if present)
+- PostgreSQL
+- Redis
+- A package manager compatible with the lockfile
+- Provider credentials only if testing live payment integrations
 
-### ✅ Admin Module (future)
-- Manage users (customers & mechanics).
-- Monitor bookings & payments.
-- Generate revenue reports.
+### Setup
 
----
-
-## 🛠️ Tech Stack
-
-- **Backend**: [NestJS](https://nestjs.com/) (TypeScript)  
-- **Database**: [PostgreSQL](https://www.postgresql.org/) with [Prisma ORM](https://www.prisma.io/)  
-- **Authentication**: JWT + Role Guards  
-- **Payment**: Paystack + Flutterwave  
-- **Documentation**: Swagger UI  
-
----
-
-## 📦 Installation
-
-### Clone repo
 ```bash
-git clone https://github.com/yourusername/mechanic-saas.git
-cd mechanic-saas
-Install dependencies
-bash
-Copy code
 npm install
-Setup environment variables
-Create a .env file in the root:
-
-env
-Copy code
-DATABASE_URL=postgresql://user:password@localhost:5432/mechanicdb
-JWT_SECRET=yourjwtsecret
-PAYSTACK_SECRET_KEY=your-paystack-secret
-FLUTTERWAVE_SECRET_KEY=your-flutterwave-secret
-Run migrations
-```bash
+cp .env.example .env
+npx prisma generate
 npx prisma migrate dev
-```
-
-Start app
-```bash
 npm run start:dev
 ```
 
-Swagger UI → `http://localhost:3000/api`
+Configure the environment variables in `.env` before starting the application. Do not commit real credentials or production secrets.
 
-### Platform config & runbook
+## Useful scripts
 
-Dispatch radius, geofence, commission, and receipt base URL are configurable via env. See [RUNBOOK.md](./RUNBOOK.md) for:
-- Full env list and **platform config** (e.g. `DISPATCH_RADIUS_KM`, `GEOFENCE_RADIUS_METRES`, `PLATFORM_COMMISSION_PERCENT`, `APP_URL`)
-- Cron: **dispatch timeout** runs every minute (cancel expired offers, create second wave)
-- Queues, receipts, health
+Check `package.json` for the current scripts. The project includes commands for building, running tests, end-to-end tests, webhook-related tests, and Prisma tooling.
 
-📌 Roadmap
- Authentication & roles
+## Engineering considerations
 
- Mechanic module
+Payment and wallet workflows require careful verification before production use. In particular, validate provider webhook signatures, idempotency, payment state transitions, database transaction boundaries, ledger invariants, concurrent requests, secret configuration, and tenant isolation. The presence of an integration or test does not by itself establish production certification.
 
- Booking module
+## Project status
 
- Payment integration (escrow, wallet, payouts)
+This repository is shared for technical review and demonstration. Review the current implementation and configuration before deploying it in a production environment.
 
- Notifications (email, SMS, push)
+## License
 
- Ratings & reviews
-
- Admin dashboard
-
-🤝 Contributing
-Pull requests are welcome.
-For major changes, please open an issue first to discuss what you would like to change.
-
-📜 License
-MIT License © 2025 Mechanic SaaS
+UNLICENSED. All rights reserved.
